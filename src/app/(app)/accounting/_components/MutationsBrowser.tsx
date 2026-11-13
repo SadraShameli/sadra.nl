@@ -1,5 +1,6 @@
 'use client';
 
+import { useQuery } from '@tanstack/react-query';
 import { ListChecks } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { type DateRange } from 'react-day-picker';
@@ -25,7 +26,7 @@ import {
     MutationType,
 } from '~/lib/accounting/providers/eboekhouden/enums';
 import { formatDisplayDate } from '~/lib/format';
-import { api, type RouterOutputs } from '~/trpc/react';
+import { type RouterOutputs, useTRPC } from '~/trpc/react';
 
 import { ActiveConnectionNote } from './ActiveConnectionNote';
 import { NoConnectionState } from './NoConnectionState';
@@ -33,8 +34,6 @@ import { columnWhenAnyRow } from './tableColumns';
 import { useActiveCredentials } from './useActiveCredentials';
 
 const ALL = '__all__';
-
-type Mutation = RouterOutputs['accounting']['mutations']['list'][number];
 
 const toIso = (d: Date): string => {
     const y = d.getFullYear();
@@ -49,6 +48,8 @@ const mutationTypeLabel = (type: string): string => {
 };
 
 export function MutationsBrowser() {
+    type Mutation = RouterOutputs['accounting']['mutations']['list'][number];
+    const api = useTRPC();
     const { accounting, isLoading: isCredentialsLoading } =
         useActiveCredentials();
     const credentialId = accounting?.id ?? '';
@@ -63,23 +64,29 @@ export function MutationsBrowser() {
           ? toIso(dateRange.from)
           : undefined;
 
-    const mutationsQ = api.accounting.mutations.list.useQuery(
-        {
-            credentialId,
-            dateFrom,
-            dateTo,
-            limit: DATA_TABLE_PAGE_SIZE,
-            offset,
-        },
-        { enabled: !!credentialId },
+    const mutationsQ = useQuery(
+        api.accounting.mutations.list.queryOptions(
+            {
+                credentialId,
+                dateFrom,
+                dateTo,
+                limit: DATA_TABLE_PAGE_SIZE,
+                offset,
+            },
+            { enabled: !!credentialId },
+        ),
     );
-    const countQ = api.accounting.mutations.count.useQuery(
-        { credentialId, dateFrom, dateTo },
-        { enabled: !!credentialId },
+    const countQ = useQuery(
+        api.accounting.mutations.count.queryOptions(
+            { credentialId, dateFrom, dateTo },
+            { enabled: !!credentialId },
+        ),
     );
-    const ledgersQ = api.accounting.ledgers.list.useQuery(
-        { credentialId },
-        { enabled: !!credentialId },
+    const ledgersQ = useQuery(
+        api.accounting.ledgers.list.queryOptions(
+            { credentialId },
+            { enabled: !!credentialId },
+        ),
     );
 
     const ledgerLabelById = useMemo(

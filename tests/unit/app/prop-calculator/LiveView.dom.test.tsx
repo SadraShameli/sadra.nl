@@ -47,18 +47,21 @@ vi.mock('~/lib/auth/client', () => ({
     useSession: () => sessionMock(),
 }));
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        propAccounts: {
-            rulebook: {
-                get: {
-                    useQuery: (input: unknown, options: unknown) =>
-                        rulebookQueryMock(input, options),
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        procedures: {
+            propAccounts: {
+                rulebook: {
+                    get: {
+                        query: (input: unknown, options: unknown) =>
+                            rulebookQueryMock(input, options),
+                    },
                 },
             },
         },
-    },
-}));
+    });
+});
 
 vi.mock('~/app/(app)/prop-calculator/_components/ToolPageHeading', () => ({
     ToolPageHeading: renderNothing,

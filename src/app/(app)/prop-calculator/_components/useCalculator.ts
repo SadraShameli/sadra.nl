@@ -1,6 +1,6 @@
 'use client';
 
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import {
     type Dispatch,
     useCallback,
@@ -33,8 +33,6 @@ import {
     CalculatorUrlParameter,
     OBJECTIVE_URL_PARAMETER,
 } from '~/lib/schemas/url';
-import { legacySectionTarget } from '~/lib/site/legacyCalculatorLinks';
-import { parseSameOriginRoute } from '~/lib/site/routes';
 
 import {
     type CalculatorAction,
@@ -43,15 +41,8 @@ import {
     defaultCalculatorState,
 } from './calculatorReducer';
 import { buildSimInputs } from './calculatorSimInputs';
-import {
-    isLegacyHashSettled,
-    type LegacyHashReplacement,
-    legacyHashReplacement,
-    nextUrl,
-    stillPendingLegacyHash,
-} from './calculatorUrlSync';
+import { nextUrl } from './calculatorUrlSync';
 import { writeLastToolQuery } from './lastToolQuery';
-import { watchLegacyFragmentScroll } from './legacyFragmentScroll';
 import { isCalculatorInputsPath } from './toolCatalog';
 import { tradingInputBounds } from './tradingInputBounds';
 import {
@@ -149,18 +140,12 @@ export interface UseCalculatorReturn {
     debouncedQuery: string;
     encodeOptions: EncodeStateOptions;
     hasLinkObjective: boolean;
-    legacyHashSettled: boolean;
     mounted: boolean;
     objectiveOrigin: ObjectiveOrigin;
     planOptIns: PlanOptIns;
     rememberAutomaticObjective: (objective: null | SizingObjective) => void;
     simInputs: SimInputs;
     state: CalculatorState;
-}
-
-interface MountState {
-    mounted: boolean;
-    pendingLegacyHash: LegacyHashReplacement | null;
 }
 
 interface ObjectiveOriginState {
@@ -367,16 +352,12 @@ export function signedInDefaultObjective(
 export function useCalculator(): UseCalculatorReturn {
     const searchParameters = useSearchParams();
     const pathname = usePathname();
-    const router = useRouter();
     const [state, dispatch] = useReducer(
         calculatorReducer,
         searchParameters.toString(),
         initialStateFromSearch,
     );
-    const [mount, setMount] = useState<MountState>({
-        mounted: false,
-        pendingLegacyHash: null,
-    });
+    const [mounted, setMounted] = useState(false);
     const hasMountedReference = useRef(false);
     const [hasLinkObjective] = useState(() =>
         isObjectiveInSearch(searchParameters.toString()),
@@ -446,44 +427,14 @@ export function useCalculator(): UseCalculatorReturn {
         },
         [],
     );
-    const hasSettledLegacyHash = isLegacyHashSettled(
-        mount.mounted,
-        mount.pendingLegacyHash,
-        pathname,
-    );
-
     useEffect(() => {
         if (hasMountedReference.current) return;
         hasMountedReference.current = true;
-        const { hash } = window.location;
-        const fragmentTarget = legacySectionTarget(hash);
-        if (fragmentTarget !== null)
-            watchLegacyFragmentScroll(
-                fragmentTarget.fragment,
-                fragmentTarget.route,
-            );
-        const pendingLegacyHash = legacyHashReplacement(
-            state,
-            pathname,
-            hash,
-            encodeOptions,
-        );
-        if (pendingLegacyHash !== null)
-            router.replace(parseSameOriginRoute(pendingLegacyHash.target));
-        setMount({ mounted: true, pendingLegacyHash });
-    }, [encodeOptions, pathname, router, state]);
+        setMounted(true);
+    }, []);
 
     useEffect(() => {
-        const pendingLegacyHash = stillPendingLegacyHash(
-            mount.pendingLegacyHash,
-            pathname,
-        );
-        if (pendingLegacyHash === mount.pendingLegacyHash) return;
-        setMount({ mounted: true, pendingLegacyHash });
-    }, [mount.pendingLegacyHash, pathname]);
-
-    useEffect(() => {
-        if (!hasSettledLegacyHash || !isCalculatorInputsPath(pathname)) return;
+        if (!mounted || !isCalculatorInputsPath(pathname)) return;
         const url = nextUrl(
             state,
             pathname,
@@ -493,13 +444,7 @@ export function useCalculator(): UseCalculatorReturn {
         );
         if (url !== null) window.history.replaceState(null, '', url);
         writeLastToolQuery(encodeState(state, encodeOptions).toString());
-    }, [
-        encodeOptions,
-        hasSettledLegacyHash,
-        pathname,
-        searchParameters,
-        state,
-    ]);
+    }, [encodeOptions, mounted, pathname, searchParameters, state]);
 
     const {
         activationDiscountPercent,
@@ -623,8 +568,7 @@ export function useCalculator(): UseCalculatorReturn {
         debouncedQuery,
         encodeOptions,
         hasLinkObjective,
-        legacyHashSettled: hasSettledLegacyHash,
-        mounted: mount.mounted,
+        mounted,
         objectiveOrigin,
         planOptIns,
         rememberAutomaticObjective,

@@ -40,18 +40,21 @@ vi.mock('~/lib/auth/client', () => ({
     useSession: () => ({ data: null, error: null, isPending: false }),
 }));
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        propAccounts: {
-            bankroll: {
-                summary: { useQuery: () => ({ data: undefined }) },
-            },
-            rulebook: {
-                get: { useQuery: () => ({ data: undefined }) },
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        procedures: {
+            propAccounts: {
+                bankroll: {
+                    summary: { query: () => ({ data: undefined }) },
+                },
+                rulebook: {
+                    get: { query: () => ({ data: undefined }) },
+                },
             },
         },
-    },
-}));
+    });
+});
 
 const REJECTED = 'lab scenarios in this link or saved scenario were rejected';
 

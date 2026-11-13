@@ -3,6 +3,7 @@
 import {
     easeOut,
     motion,
+    stagger,
     type Transition,
     useInView,
     type Variants,
@@ -30,7 +31,7 @@ const defaultVariants: Variants = {
     },
 };
 
-const defaultTransition: Transition = { staggerChildren: 0.1 };
+const defaultTransition: Transition = { delayChildren: stagger(0.1) };
 
 export default function TextAnimation({
     className,

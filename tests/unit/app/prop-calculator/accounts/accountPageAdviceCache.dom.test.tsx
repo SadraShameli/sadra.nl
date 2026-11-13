@@ -41,16 +41,17 @@ vi.mock('~/trpc/server', () => {
     const recorder = (path: readonly string[]): unknown =>
         new Proxy(vi.fn(), {
             get: (_target, key) =>
-                key === 'prefetch'
-                    ? () => {
-                          probe.prefetched.push(path.join('.'));
-                          return Promise.resolve();
-                      }
+                key === 'queryOptions'
+                    ? () => ({ procedure: path.join('.') })
                     : recorder([...path, String(key)]),
         });
     return {
-        api: recorder([]),
         HydrateClient: ({ children }: { children: ReactNode }) => children,
+        prefetch: (options: { procedure: string }) => {
+            probe.prefetched.push(options.procedure);
+            return Promise.resolve();
+        },
+        trpc: recorder([]),
     };
 });
 
@@ -174,7 +175,7 @@ describe('the accounts pages share one computation cache (PT-34c, PT-21c)', () =
             'utf8',
         );
         const portfolioQueries = portfolioSource
-            .matchAll(/api\.(propAccounts\.\w+\.\w+)\.useQuery/g)
+            .matchAll(/api\.(propAccounts\.\w+\.\w+)\.queryOptions/g)
             .map((match) => match[1])
             .toArray();
         expect(portfolioQueries.length).toBeGreaterThan(5);

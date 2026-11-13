@@ -4,6 +4,11 @@ import { z } from 'zod';
 const PAGE_SIZE = 100;
 const TAG_RE = /<[^>]+>/g;
 
+export interface WiseActivityTransactions {
+    cards: WiseCardTransaction[];
+    incoming: WiseIncomingTransfer[];
+}
+
 export interface WiseCardTransaction {
     created: string;
     id: string;
@@ -13,6 +18,14 @@ export interface WiseCardTransaction {
     primaryCurrency: string;
     secondaryAmount: number;
     secondaryCurrency: string;
+}
+
+export interface WiseIncomingTransfer {
+    amount: number;
+    created: string;
+    currency: string;
+    id: string;
+    payer: string;
 }
 
 export interface WiseProfile {
@@ -61,6 +74,7 @@ const activitySchema = z.object({
     title: z.string().nullish(),
     type: z.string(),
 });
+type WiseActivity = z.infer<typeof activitySchema>;
 const activitiesSchema = z.object({
     activities: z.array(activitySchema).default([]),
     cursor: z.string().nullish(),
@@ -93,6 +107,30 @@ export class WiseClient {
             : WiseClient.PRODUCTION_URL;
         this.fetchImpl = options.fetch ?? fetch;
         this.timeoutMs = options.timeoutMs ?? 30_000;
+    }
+
+    private async walkActivities(
+        profileId: number,
+        readPage: (activities: readonly WiseActivity[]) => {
+            isStop: boolean;
+        },
+    ): Promise<void> {
+        let nextCursor: null | string = null;
+        for (;;) {
+            const parameters: Record<string, string> = {
+                size: String(PAGE_SIZE),
+                ...(nextCursor && { nextCursor }),
+            };
+            const body = await this.get<unknown>(
+                `/v1/profiles/${profileId}/activities`,
+                parameters,
+            );
+            const parsed = activitiesSchema.parse(body);
+            const { isStop } = readPage(parsed.activities);
+            if (isStop || !parsed.cursor || parsed.activities.length === 0)
+                return;
+            nextCursor = parsed.cursor;
+        }
     }
 
     private async get<T>(
@@ -143,34 +181,38 @@ export class WiseClient {
         }
     }
 
+    async listActivityTransactions(arguments_: {
+        from: string;
+        profileId: number;
+        to: string;
+    }): Promise<WiseActivityTransactions> {
+        const cards: WiseCardTransaction[] = [];
+        const incoming: WiseIncomingTransfer[] = [];
+        await this.walkActivities(arguments_.profileId, (activities) => {
+            const cardPage = parseCardActivityPage(
+                activities,
+                arguments_.from,
+                arguments_.to,
+            );
+            const incomingPage = parseIncomingTransferPage(
+                activities,
+                arguments_.from,
+                arguments_.to,
+            );
+            cards.push(...cardPage.transactions);
+            incoming.push(...incomingPage.transfers);
+            return { isStop: cardPage.isStop || incomingPage.isStop };
+        });
+        return { cards, incoming };
+    }
+
     async listCardTransactions(arguments_: {
         from: string;
         profileId: number;
         to: string;
     }): Promise<WiseCardTransaction[]> {
-        const out: WiseCardTransaction[] = [];
-        let nextCursor: null | string = null;
-        for (;;) {
-            const parameters: Record<string, string> = {
-                size: String(PAGE_SIZE),
-                ...(nextCursor && { nextCursor }),
-            };
-            const body = await this.get<unknown>(
-                `/v1/profiles/${arguments_.profileId}/activities`,
-                parameters,
-            );
-            const parsed = activitiesSchema.parse(body);
-            const { isStop, transactions } = parseCardActivityPage(
-                parsed.activities,
-                arguments_.from,
-                arguments_.to,
-            );
-            out.push(...transactions);
-            if (isStop || !parsed.cursor || parsed.activities.length === 0)
-                break;
-            nextCursor = parsed.cursor;
-        }
-        return out;
+        const { cards } = await this.listActivityTransactions(arguments_);
+        return cards;
     }
 
     async listTransfers(arguments_: {
@@ -279,4 +321,39 @@ function parseCardActivityPage(
 
 function parseDatetimeIso(raw: string): string {
     return raw.replace(' ', 'T').replace('Z', '+00:00');
+}
+
+function parseIncomingTransferPage(
+    activities: readonly WiseActivity[],
+    from: string,
+    to: string,
+): { isStop: boolean; transfers: WiseIncomingTransfer[] } {
+    const transfers: WiseIncomingTransfer[] = [];
+    let isStop = false;
+    for (const a of activities) {
+        const created = parseDatetimeIso(a.createdOn);
+        const createdDate = created.slice(0, 10);
+        if (createdDate < from) {
+            isStop = true;
+            continue;
+        }
+        if (
+            a.type !== 'TRANSFER' ||
+            a.status !== 'COMPLETED' ||
+            createdDate > to ||
+            !isPositiveAmount(a.primaryAmount)
+        )
+            continue;
+        const primary = parseAmount(a.primaryAmount);
+        if (!primary) continue;
+        const [amount, currency] = primary;
+        transfers.push({
+            amount,
+            created,
+            currency,
+            id: String(a.resource.id),
+            payer: (a.title ?? '').replaceAll(TAG_RE, '').trim(),
+        });
+    }
+    return { isStop, transfers };
 }

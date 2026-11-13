@@ -45,9 +45,6 @@ const LOCATION_ROW: FakeRow = {
 
 const CREDENTIAL_KEYS = ['token_hash', 'token_created_at', 'token_revoked_at'];
 
-type DeviceOutputs = inferRouterOutputs<typeof deviceRouter>;
-type LocationOutputs = inferRouterOutputs<typeof locationRouter>;
-
 type Session = null | { user: { email: string; id: string; role: string } };
 
 function callerFor(session: Session) {
@@ -85,6 +82,8 @@ const ADMIN: Session = {
 };
 
 describe('device token exposure', () => {
+    type DeviceOutputs = inferRouterOutputs<typeof deviceRouter>;
+
     it('public device.getDevice never selects or returns token columns', async () => {
         const { caller, queries } = callerFor(ANONYMOUS);
         const result = await caller.device.getDevice({ device_id: 42 });
@@ -175,6 +174,7 @@ describe('device token exposure', () => {
     });
 
     it('types every public device output as PublicDevice', () => {
+        type LocationOutputs = inferRouterOutputs<typeof locationRouter>;
         expectTypeOf<
             DeviceOutputs['getDevices']['data'][number]
         >().toEqualTypeOf<PublicDevice>();

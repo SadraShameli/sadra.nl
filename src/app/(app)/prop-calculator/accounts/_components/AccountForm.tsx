@@ -1,6 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { type BaseSyntheticEvent, useId, useState } from 'react';
@@ -75,7 +76,7 @@ import {
     MAX_ACCOUNT_LABEL_LENGTH,
 } from '~/lib/schemas/propAccounts';
 import { routes } from '~/lib/site/routes';
-import { api, type RouterOutputs } from '~/trpc/react';
+import { type RouterOutputs, useTRPC } from '~/trpc/react';
 
 import {
     ACCOUNT_LIST_INPUT,
@@ -424,7 +425,10 @@ export function AccountCreator({
 }
 
 export function AccountEditor({ id }: { id: string }) {
-    const accountQuery = api.propAccounts.account.get.useQuery({ id });
+    const api = useTRPC();
+    const accountQuery = useQuery(
+        api.propAccounts.account.get.queryOptions({ id }),
+    );
     const externalFirms = useExternalFirms();
     if (accountQuery.isPending)
         return (
@@ -511,10 +515,14 @@ function AccountForm({
     onCreateExternalFirm: CreateExternalFirm | null;
     stored: null | StoredAccount;
 }) {
-    const accountsQuery =
-        api.propAccounts.account.list.useQuery(ACCOUNT_LIST_INPUT);
-    const groupsQuery = api.propAccounts.copyGroup.list.useQuery();
-    const roundsQuery = api.propAccounts.round.list.useQuery();
+    const api = useTRPC();
+    const accountsQuery = useQuery(
+        api.propAccounts.account.list.queryOptions(ACCOUNT_LIST_INPUT),
+    );
+    const groupsQuery = useQuery(
+        api.propAccounts.copyGroup.list.queryOptions(),
+    );
+    const roundsQuery = useQuery(api.propAccounts.round.list.queryOptions());
     const form = useForm<AccountFormValues>({
         defaultValues: defaults,
         resolver: zodResolver(accountFormSchema, undefined, { raw: true }),
@@ -1769,11 +1777,18 @@ function useAccountFormSubmit({
     plan: null | Plan;
     stored: null | StoredAccount;
 }): AccountFormSubmit {
+    const api = useTRPC();
     const router = useRouter();
-    const utilities = api.useUtils();
-    const create = api.propAccounts.account.create.useMutation();
-    const update = api.propAccounts.account.update.useMutation();
-    const snapshotCreation = api.propAccounts.snapshot.create.useMutation();
+    const queryClient = useQueryClient();
+    const create = useMutation(
+        api.propAccounts.account.create.mutationOptions(),
+    );
+    const update = useMutation(
+        api.propAccounts.account.update.mutationOptions(),
+    );
+    const snapshotCreation = useMutation(
+        api.propAccounts.snapshot.create.mutationOptions(),
+    );
     const [includeSnapshot, setIncludeSnapshot] = useState(true);
     const [snapshotValues, setSnapshotValues] = useState<SnapshotFormValues>(
         () => emptySnapshotFormValues(todayIsoDate(new Date())),
@@ -1904,7 +1919,7 @@ function useAccountFormSubmit({
             toast.error(errorMessage(error));
             return;
         } finally {
-            await utilities.propAccounts.invalidate();
+            await queryClient.invalidateQueries(api.propAccounts.pathFilter());
         }
         form.reset(values);
         router.push(routes.propCalculator.accounts.index);
@@ -1934,13 +1949,20 @@ function useAccountFormSubmit({
 }
 
 function useExternalFirms(): ExternalFirmSource {
-    const utilities = api.useUtils();
-    const listQuery = api.propAccounts.externalFirm.list.useQuery();
-    const creation = api.propAccounts.externalFirm.create.useMutation();
+    const api = useTRPC();
+    const queryClient = useQueryClient();
+    const listQuery = useQuery(
+        api.propAccounts.externalFirm.list.queryOptions(),
+    );
+    const creation = useMutation(
+        api.propAccounts.externalFirm.create.mutationOptions(),
+    );
     return {
         create: async (name) => {
             const created = await creation.mutateAsync({ name });
-            await utilities.propAccounts.externalFirm.list.invalidate();
+            await queryClient.invalidateQueries(
+                api.propAccounts.externalFirm.list.pathFilter(),
+            );
             return created;
         },
         error: listQuery.error,

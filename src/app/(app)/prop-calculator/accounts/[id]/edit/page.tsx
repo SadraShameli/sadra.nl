@@ -9,7 +9,7 @@ import { openAccountPage } from '~/app/(app)/prop-calculator/accounts/_component
 import { PageTransition } from '~/components/PageTransition';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
-import { api, HydrateClient } from '~/trpc/server';
+import { HydrateClient, prefetch, trpc } from '~/trpc/server';
 
 export const metadata: Metadata = {
     description: 'Edit a prop firm account.',
@@ -47,11 +47,13 @@ async function EditPropAccountContent({
         routes.propCalculator.accounts.edit,
     );
     await Promise.all([
-        api.propAccounts.account.get.prefetch({ id }),
-        api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT),
-        api.propAccounts.copyGroup.list.prefetch(),
-        api.propAccounts.externalFirm.list.prefetch(),
-        api.propAccounts.round.list.prefetch(),
+        prefetch(trpc.propAccounts.account.get.queryOptions({ id })),
+        prefetch(
+            trpc.propAccounts.account.list.queryOptions(ACCOUNT_LIST_INPUT),
+        ),
+        prefetch(trpc.propAccounts.copyGroup.list.queryOptions()),
+        prefetch(trpc.propAccounts.externalFirm.list.queryOptions()),
+        prefetch(trpc.propAccounts.round.list.queryOptions()),
     ]);
     return (
         <HydrateClient>

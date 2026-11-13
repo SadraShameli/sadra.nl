@@ -34,22 +34,25 @@ vi.mock('next/link', () => ({
     ),
 }));
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        accounting: {
-            credentials: { list: { useQuery: () => ({ data: [] }) } },
-            runs: {
-                list: {
-                    useQuery: () => ({
-                        data: { items: [RUN], totalCount: 31 },
-                        error: null,
-                        isPending: false,
-                    }),
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        procedures: {
+            accounting: {
+                credentials: { list: { query: () => ({ data: [] }) } },
+                runs: {
+                    list: {
+                        query: () => ({
+                            data: { items: [RUN], totalCount: 31 },
+                            error: null,
+                            isPending: false,
+                        }),
+                    },
                 },
             },
         },
-    },
-}));
+    });
+});
 
 describe('the runs table', () => {
     let container: HTMLDivElement;

@@ -9,7 +9,7 @@ import { requireSessionUser } from '~/lib/auth/guards';
 import { loginRedirectFor } from '~/lib/site/privateRoutes';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
-import { api, HydrateClient } from '~/trpc/server';
+import { HydrateClient, prefetch, trpc } from '~/trpc/server';
 
 import { ImportView } from './ImportView';
 
@@ -44,8 +44,10 @@ async function PropAccountsImportContent() {
         loginRedirectFor(routes.propCalculator.accounts.import),
     );
     await Promise.all([
-        api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT),
-        api.propAccounts.externalFirm.list.prefetch(),
+        prefetch(
+            trpc.propAccounts.account.list.queryOptions(ACCOUNT_LIST_INPUT),
+        ),
+        prefetch(trpc.propAccounts.externalFirm.list.queryOptions()),
     ]);
     return (
         <HydrateClient>

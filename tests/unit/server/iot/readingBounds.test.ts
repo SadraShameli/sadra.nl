@@ -30,7 +30,7 @@ vi.mock('~/lib/auth/server', () => ({
 vi.mock('~/lib/email', () => ({}));
 vi.mock('~/lib/notify', () => ({ scheduleFanOut: vi.fn() }));
 vi.mock('~/trpc/server', () => ({
-    api: new Proxy(
+    caller: new Proxy(
         {},
         {
             get: (_target, key: string) => current.api[key],

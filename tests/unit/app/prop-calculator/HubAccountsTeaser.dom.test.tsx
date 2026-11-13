@@ -81,7 +81,7 @@ const harness = vi.hoisted(() => {
     return {
         queries,
         query: (name: string) => ({
-            useQuery: () => {
+            query: () => {
                 queryCalls.push(name);
                 return (
                     queries.get(name) ?? {
@@ -112,24 +112,27 @@ vi.mock('~/lib/auth/client', () => ({
         useSyncExternalStore(harness.subscribe, () => harness.store.session),
 }));
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        propAccounts: {
-            account: { list: harness.query('account.list') },
-            bankroll: { list: harness.query('bankroll.list') },
-            copyGroup: { list: harness.query('copyGroup.list') },
-            decision: { list: harness.query('decision.list') },
-            event: { list: harness.query('event.list') },
-            fee: { list: harness.query('fee.list') },
-            payout: { list: harness.query('payout.list') },
-            rulebook: { get: harness.query('rulebook.get') },
-            snapshot: {
-                latestForAll: harness.query('snapshot.latestForAll'),
-                latestTwoForAll: harness.query('snapshot.latestTwoForAll'),
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        procedures: {
+            propAccounts: {
+                account: { list: harness.query('account.list') },
+                bankroll: { list: harness.query('bankroll.list') },
+                copyGroup: { list: harness.query('copyGroup.list') },
+                decision: { list: harness.query('decision.list') },
+                event: { list: harness.query('event.list') },
+                fee: { list: harness.query('fee.list') },
+                payout: { list: harness.query('payout.list') },
+                rulebook: { get: harness.query('rulebook.get') },
+                snapshot: {
+                    latestForAll: harness.query('snapshot.latestForAll'),
+                    latestTwoForAll: harness.query('snapshot.latestTwoForAll'),
+                },
             },
         },
-    },
-}));
+    });
+});
 
 const { firm, plan } = firstModeledPlan();
 

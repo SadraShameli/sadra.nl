@@ -1,10 +1,12 @@
 'use client';
 
+import { useQuery } from '@tanstack/react-query';
+
 import {
     CredentialRegistry,
     CredentialRole,
 } from '~/lib/accounting/credentials/index';
-import { api } from '~/trpc/react';
+import { useTRPC } from '~/trpc/react';
 
 export interface ActiveCredentials {
     accounting: ActiveCredential | undefined;
@@ -21,7 +23,10 @@ interface ActiveCredential {
 }
 
 export function useActiveCredentials(): ActiveCredentials {
-    const credentialsQ = api.accounting.credentials.list.useQuery();
+    const api = useTRPC();
+    const credentialsQ = useQuery(
+        api.accounting.credentials.list.queryOptions(),
+    );
     const all = credentialsQ.data ?? [];
 
     const listByRole = (role: CredentialRole): ActiveCredential[] =>

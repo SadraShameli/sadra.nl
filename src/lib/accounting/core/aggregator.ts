@@ -243,10 +243,11 @@ export class BookingAggregator {
             return;
         }
 
-        const bank = this.bankByCurrency.get(tx.sourceCurrency);
+        const bankCurrency = tx.bankCurrency ?? tx.sourceCurrency;
+        const bank = this.bankByCurrency.get(bankCurrency);
         if (!bank) {
             this.skippedNoBank += 1;
-            this.missingBankCurrencies.add(tx.sourceCurrency);
+            this.missingBankCurrencies.add(bankCurrency);
             return;
         }
 

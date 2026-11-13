@@ -1,10 +1,9 @@
 'use client';
 
-import { matchQuery } from '@tanstack/react-query';
-import { getQueryKey } from '@trpc/react-query';
+import { matchQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
-import { api } from '~/trpc/react';
+import { useTRPC } from '~/trpc/react';
 
 export const ACCOUNT_DELETE_DESCRIPTION =
     'This permanently removes the account with its balances, payouts, fees, events and sizing decisions. Archive it instead to keep its history in your totals.';
@@ -30,16 +29,22 @@ export function accountDeleteTitle(label: string): string {
 }
 
 export function useAccountArchiving(): AccountArchiving {
-    const utilities = api.useUtils();
-    const invalidate = () => utilities.propAccounts.account.invalidate();
-    const archive = api.propAccounts.account.archive.useMutation({
-        onError: reportError,
-        onSuccess: invalidate,
-    });
-    const unarchive = api.propAccounts.account.unarchive.useMutation({
-        onError: reportError,
-        onSuccess: invalidate,
-    });
+    const api = useTRPC();
+    const queryClient = useQueryClient();
+    const invalidate = () =>
+        queryClient.invalidateQueries(api.propAccounts.account.pathFilter());
+    const archive = useMutation(
+        api.propAccounts.account.archive.mutationOptions({
+            onError: reportError,
+            onSuccess: invalidate,
+        }),
+    );
+    const unarchive = useMutation(
+        api.propAccounts.account.unarchive.mutationOptions({
+            onError: reportError,
+            onSuccess: invalidate,
+        }),
+    );
     return {
         isPendingFor: (accountId) =>
             (archive.isPending && archive.variables.id === accountId) ||
@@ -69,26 +74,30 @@ export function useAccountArchiving(): AccountArchiving {
 }
 
 export function useAccountRemoval(onDeleted?: () => void): AccountRemoval {
-    const utilities = api.useUtils();
-    const removal = api.propAccounts.account.remove.useMutation({
-        onError: (error) => {
-            toast.error(error.message);
-        },
-        onSuccess: async (_result, { id }) => {
-            const deletedAccount = {
-                queryKey: getQueryKey(
-                    api.propAccounts.account.get,
-                    { id },
-                    'query',
-                ),
-            };
-            await utilities.propAccounts.account.get.cancel({ id });
-            await utilities.propAccounts.invalidate(undefined, {
-                predicate: (query) => !matchQuery(deletedAccount, query),
-            });
-            onDeleted?.();
-        },
-    });
+    const api = useTRPC();
+    const queryClient = useQueryClient();
+    const removal = useMutation(
+        api.propAccounts.account.remove.mutationOptions({
+            onError: (error) => {
+                toast.error(error.message);
+            },
+            onSuccess: async (_result, { id }) => {
+                const deletedAccount = {
+                    queryKey: api.propAccounts.account.get.queryKey({ id }),
+                };
+                await queryClient.cancelQueries(
+                    api.propAccounts.account.get.queryFilter({ id }),
+                );
+                await queryClient.invalidateQueries(
+                    api.propAccounts.pathFilter({
+                        predicate: (query) =>
+                            !matchQuery(deletedAccount, query),
+                    }),
+                );
+                onDeleted?.();
+            },
+        }),
+    );
     return {
         isPendingFor: (accountId) =>
             removal.isPending && removal.variables.id === accountId,

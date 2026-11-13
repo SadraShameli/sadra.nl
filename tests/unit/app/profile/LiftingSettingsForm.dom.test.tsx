@@ -9,30 +9,33 @@ const harness = vi.hoisted(() => ({
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        lifting: {
-            settings: {
-                update: {
-                    useMutation: (options: { onSuccess?: () => unknown }) => ({
-                        isPending: false,
-                        mutate: (
-                            patch: unknown,
-                            callOptions?: { onSuccess?: () => unknown },
-                        ) => {
-                            harness.patches.push(patch);
-                            options.onSuccess?.();
-                            callOptions?.onSuccess?.();
-                        },
-                    }),
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        procedures: {
+            lifting: {
+                settings: {
+                    update: {
+                        mutation: (options: { onSuccess?: () => unknown }) => ({
+                            isPending: false,
+                            mutate: (
+                                patch: unknown,
+                                callOptions?: { onSuccess?: () => unknown },
+                            ) => {
+                                harness.patches.push(patch);
+                                options.onSuccess?.();
+                                callOptions?.onSuccess?.();
+                            },
+                        }),
+                    },
                 },
             },
+            queryClient: () => ({
+                lifting: { settings: { get: { invalidate: vi.fn() } } },
+            }),
         },
-        useUtils: () => ({
-            lifting: { settings: { get: { invalidate: vi.fn() } } },
-        }),
-    },
-}));
+    });
+});
 
 const { LiftingSettingsForm } =
     await import('~/app/(app)/profile/_components/LiftingSettingsForm');

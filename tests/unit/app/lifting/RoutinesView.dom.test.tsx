@@ -21,53 +21,56 @@ vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 vi.mock('next/navigation', () => ({
     useRouter: () => ({ push: vi.fn() }),
 }));
-vi.mock('~/trpc/react', () => ({
-    api: {
-        lifting: {
-            routine: {
-                delete: {
-                    useMutation: () => ({
-                        isPending: false,
-                        mutate: vi.fn(),
-                        variables: undefined,
-                    }),
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        procedures: {
+            lifting: {
+                routine: {
+                    delete: {
+                        mutation: () => ({
+                            isPending: false,
+                            mutate: vi.fn(),
+                            variables: undefined,
+                        }),
+                    },
+                    list: {
+                        query: () => ({
+                            data: [
+                                {
+                                    blocks: [{ exerciseSlug: 'barbell-squat' }],
+                                    id: LEG_DAY_ID,
+                                    name: 'Leg day',
+                                },
+                                {
+                                    blocks: [{ exerciseSlug: 'pull-up' }],
+                                    id: PULL_DAY_ID,
+                                    name: 'Pull day',
+                                },
+                            ],
+                            isLoading: false,
+                        }),
+                    },
                 },
-                list: {
-                    useQuery: () => ({
-                        data: [
-                            {
-                                blocks: [{ exerciseSlug: 'barbell-squat' }],
-                                id: LEG_DAY_ID,
-                                name: 'Leg day',
-                            },
-                            {
-                                blocks: [{ exerciseSlug: 'pull-up' }],
-                                id: PULL_DAY_ID,
-                                name: 'Pull day',
-                            },
-                        ],
-                        isLoading: false,
-                    }),
-                },
-            },
-            workout: {
-                start: {
-                    useMutation: (options: StartOptions) => {
-                        harness.startOptions = options;
-                        return {
-                            isPending: harness.isStartPending,
-                            mutate: (input: unknown) => {
-                                harness.started.push(input);
-                            },
-                            variables: harness.startVariables,
-                        };
+                workout: {
+                    start: {
+                        mutation: (options: StartOptions) => {
+                            harness.startOptions = options;
+                            return {
+                                isPending: harness.isStartPending,
+                                mutate: (input: unknown) => {
+                                    harness.started.push(input);
+                                },
+                                variables: harness.startVariables,
+                            };
+                        },
                     },
                 },
             },
+            queryClient: () => ({}),
         },
-        useUtils: () => ({}),
-    },
-}));
+    });
+});
 
 const { RoutinesView } =
     await import('~/app/(app)/lifting/_components/RoutinesView');

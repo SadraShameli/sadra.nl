@@ -1,5 +1,6 @@
 'use client';
 
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { endOfDay, startOfDay } from 'date-fns';
 import { Calendar, ExternalLink, Play } from 'lucide-react';
 import Link from 'next/link';
@@ -32,13 +33,11 @@ import {
 } from '~/lib/lifting/workout-duration';
 import { workoutName } from '~/lib/lifting/workout-name';
 import { routes } from '~/lib/site/routes';
-import { api, type RouterOutputs } from '~/trpc/react';
+import { type RouterOutputs, useTRPC } from '~/trpc/react';
 
 interface HistoryViewProperties {
     from: Date;
 }
-
-type WorkoutRow = RouterOutputs['lifting']['workout']['list'][number];
 
 const FILTER_ALL = '__all__';
 
@@ -48,28 +47,34 @@ const STATUS_OPTIONS = [
     { label: 'In progress', value: 'in-progress' },
 ] as const;
 
-type StatusFilter = (typeof STATUS_OPTIONS)[number]['value'];
-
 export function HistoryView({ from }: HistoryViewProperties) {
+    type WorkoutRow = RouterOutputs['lifting']['workout']['list'][number];
+    const api = useTRPC();
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
     const queryFrom = dateRange?.from ? startOfDay(dateRange.from) : from;
     const queryTo = dateRange?.to ? endOfDay(dateRange.to) : undefined;
 
-    const utilities = api.useUtils();
-    const workouts = api.lifting.workout.list.useQuery({
-        from: queryFrom,
-        limit: 200,
-        offset: 0,
-        to: queryTo,
-    });
-    const remove = api.lifting.workout.delete.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: async () => {
-            toast.success('Workout deleted');
-            await utilities.lifting.workout.list.invalidate();
-        },
-    });
+    const queryClient = useQueryClient();
+    const workouts = useQuery(
+        api.lifting.workout.list.queryOptions({
+            from: queryFrom,
+            limit: 200,
+            offset: 0,
+            to: queryTo,
+        }),
+    );
+    const remove = useMutation(
+        api.lifting.workout.delete.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: async () => {
+                toast.success('Workout deleted');
+                await queryClient.invalidateQueries(
+                    api.lifting.workout.list.pathFilter(),
+                );
+            },
+        }),
+    );
 
     const allRows = useMemo(() => workouts.data ?? [], [workouts.data]);
 
@@ -164,6 +169,8 @@ export function HistoryView({ from }: HistoryViewProperties) {
                 emptyState={<NoMatchesState icon={Calendar} noun="workouts" />}
                 hasExternalFilters={Boolean(dateRange?.from)}
                 headerActions={(table) => {
+                    type StatusFilter =
+                        (typeof STATUS_OPTIONS)[number]['value'];
                     const statusColumn = table.getColumn('status');
                     const durationColumn = table.getColumn('duration');
                     return (

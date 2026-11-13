@@ -56,7 +56,7 @@ const harness = vi.hoisted(() => {
         },
         queries,
         query: (name: string) => ({
-            useQuery: () => queries.get(name) ?? pending,
+            query: () => queries.get(name) ?? pending,
         }),
     };
 });
@@ -65,20 +65,25 @@ vi.mock('~/lib/auth/client', () => ({
     useSession: () => ({ data: null, error: null, isPending: false }),
 }));
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        propAccounts: {
-            account: { list: harness.query('account.list') },
-            bankroll: { list: harness.query('bankroll.list') },
-            edge: { summary: harness.query('edge.summary') },
-            event: { list: harness.query('event.list') },
-            fee: { list: harness.query('fee.list') },
-            firmEngagement: { list: harness.query('firmEngagement.list') },
-            payout: { list: harness.query('payout.list') },
-            rulebook: { get: harness.query('rulebook.get') },
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        procedures: {
+            propAccounts: {
+                account: { list: harness.query('account.list') },
+                bankroll: { list: harness.query('bankroll.list') },
+                edge: { summary: harness.query('edge.summary') },
+                event: { list: harness.query('event.list') },
+                fee: { list: harness.query('fee.list') },
+                firmEngagement: {
+                    list: harness.query('firmEngagement.list'),
+                },
+                payout: { list: harness.query('payout.list') },
+                rulebook: { get: harness.query('rulebook.get') },
+            },
         },
-    },
-}));
+    });
+});
 
 vi.mock(
     '~/app/(app)/prop-calculator/accounts/_components/overview/useOverviewWorker',

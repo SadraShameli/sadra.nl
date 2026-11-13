@@ -87,46 +87,49 @@ vi.mock('~/lib/auth/client', () => ({
         useSyncExternalStore(harness.subscribe, () => harness.store.session),
 }));
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        propAccounts: {
-            scenario: {
-                importMany: {
-                    useMutation: () => ({
-                        isPending: false,
-                        mutateAsync: scenarioApi.importMany,
-                    }),
-                },
-                list: {
-                    useQuery: () => ({
-                        data: scenarioApi.listRows,
-                        error: null,
-                        isError: false,
-                    }),
-                },
-                remove: {
-                    useMutation: () => ({
-                        isPending: false,
-                        mutateAsync: scenarioApi.remove,
-                    }),
-                },
-                removeAll: {
-                    useMutation: () => ({
-                        isPending: false,
-                        mutateAsync: scenarioApi.removeAll,
-                    }),
-                },
-                save: {
-                    useMutation: () => ({
-                        isPending: false,
-                        mutateAsync: scenarioApi.save,
-                    }),
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        procedures: {
+            propAccounts: {
+                scenario: {
+                    importMany: {
+                        mutation: () => ({
+                            isPending: false,
+                            mutateAsync: scenarioApi.importMany,
+                        }),
+                    },
+                    list: {
+                        query: () => ({
+                            data: scenarioApi.listRows,
+                            error: null,
+                            isError: false,
+                        }),
+                    },
+                    remove: {
+                        mutation: () => ({
+                            isPending: false,
+                            mutateAsync: scenarioApi.remove,
+                        }),
+                    },
+                    removeAll: {
+                        mutation: () => ({
+                            isPending: false,
+                            mutateAsync: scenarioApi.removeAll,
+                        }),
+                    },
+                    save: {
+                        mutation: () => ({
+                            isPending: false,
+                            mutateAsync: scenarioApi.save,
+                        }),
+                    },
                 },
             },
+            queryClient: () => scenarioApi.utilities,
         },
-        useUtils: () => scenarioApi.utilities,
-    },
-}));
+    });
+});
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 

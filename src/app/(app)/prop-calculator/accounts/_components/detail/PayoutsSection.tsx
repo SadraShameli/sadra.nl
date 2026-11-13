@@ -1,6 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Banknote } from 'lucide-react';
 import { useId } from 'react';
 import { type Control, Controller, useForm } from 'react-hook-form';
@@ -43,7 +44,7 @@ import {
     usdCentsToText,
 } from '~/lib/prop-accounts';
 import { payoutCreateSchema } from '~/lib/schemas/propAccounts';
-import { api, type RouterOutputs } from '~/trpc/react';
+import { type RouterOutputs, useTRPC } from '~/trpc/react';
 
 import {
     AddRecordButton,
@@ -88,15 +89,20 @@ export function PayoutsSection({
     readonly onFailure: (error: unknown) => void;
     readonly query: ListQuery<PayoutRow>;
 }) {
+    const api = useTRPC();
     const dialog = useRecordDialog<PayoutRow>();
-    const utilities = api.useUtils();
-    const remove = api.propAccounts.payout.remove.useMutation({
-        onError: onFailure,
-        onSuccess: () => {
-            toast.success('Payout deleted');
-            return utilities.propAccounts.invalidate();
-        },
-    });
+    const queryClient = useQueryClient();
+    const remove = useMutation(
+        api.propAccounts.payout.remove.mutationOptions({
+            onError: onFailure,
+            onSuccess: () => {
+                toast.success('Payout deleted');
+                return queryClient.invalidateQueries(
+                    api.propAccounts.pathFilter(),
+                );
+            },
+        }),
+    );
     const rows = query.data;
     return (
         <>
@@ -322,9 +328,14 @@ function PayoutForm({
     readonly onDone: () => void;
     readonly onFailure: (error: unknown) => void;
 }) {
-    const utilities = api.useUtils();
-    const create = api.propAccounts.payout.create.useMutation();
-    const update = api.propAccounts.payout.update.useMutation();
+    const api = useTRPC();
+    const queryClient = useQueryClient();
+    const create = useMutation(
+        api.propAccounts.payout.create.mutationOptions(),
+    );
+    const update = useMutation(
+        api.propAccounts.payout.update.mutationOptions(),
+    );
     const schema = payoutFormSchema(accountId);
     const today = useTodayIsoDate();
     const defaults =
@@ -370,7 +381,7 @@ function PayoutForm({
         } catch (error) {
             onFailure(error);
         } finally {
-            await utilities.propAccounts.invalidate();
+            await queryClient.invalidateQueries(api.propAccounts.pathFilter());
         }
     };
 

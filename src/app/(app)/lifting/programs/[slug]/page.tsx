@@ -17,7 +17,7 @@ import {
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 import { loadOrNotFound } from '~/trpc/loadOrNotFound';
-import { api } from '~/trpc/server';
+import { caller } from '~/trpc/server';
 
 type ProgramPageProperties = PageProps<'/lifting/programs/[slug]'>;
 
@@ -58,7 +58,7 @@ export default function LiftingProgramDetailPage({
 async function CustomProgramDetail({ slug }: { readonly slug: string }) {
     await requireSessionUser();
     const program = await loadOrNotFound(() =>
-        api.lifting.program.get({ slug }),
+        caller.lifting.program.get({ slug }),
     );
     return (
         <LiftingUserSection>

@@ -1,5 +1,6 @@
 'use client';
 
+import { useQuery } from '@tanstack/react-query';
 import { BookOpen } from 'lucide-react';
 import { useMemo } from 'react';
 import { z } from 'zod';
@@ -18,14 +19,12 @@ import {
     LEDGER_CATEGORY_LABEL,
     LedgerCategory,
 } from '~/lib/accounting/providers/eboekhouden/enums';
-import { api, type RouterOutputs } from '~/trpc/react';
+import { type RouterOutputs, useTRPC } from '~/trpc/react';
 
 import { ActiveConnectionNote } from './ActiveConnectionNote';
 import { NoConnectionState } from './NoConnectionState';
 import { columnWhenAnyRow } from './tableColumns';
 import { useActiveCredentials } from './useActiveCredentials';
-
-type Ledger = RouterOutputs['accounting']['ledgers']['list'][number];
 
 const ledgerCategoryLabel = (category: string): string => {
     const known = z.enum(LedgerCategory).safeParse(category);
@@ -33,13 +32,17 @@ const ledgerCategoryLabel = (category: string): string => {
 };
 
 export function LedgersBrowser() {
+    type Ledger = RouterOutputs['accounting']['ledgers']['list'][number];
+    const api = useTRPC();
     const { accounting, isLoading: isCredentialsLoading } =
         useActiveCredentials();
     const credentialId = accounting?.id ?? '';
 
-    const ledgersQ = api.accounting.ledgers.list.useQuery(
-        { credentialId },
-        { enabled: !!credentialId },
+    const ledgersQ = useQuery(
+        api.accounting.ledgers.list.queryOptions(
+            { credentialId },
+            { enabled: !!credentialId },
+        ),
     );
     const allLedgers = useMemo(() => ledgersQ.data ?? [], [ledgersQ.data]);
     const isLoading =

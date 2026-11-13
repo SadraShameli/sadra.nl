@@ -1,6 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { type ReactNode, useId, useRef, useState } from 'react';
 import { type Control, Controller, useForm, useWatch } from 'react-hook-form';
@@ -58,7 +59,7 @@ import {
     PropRecord,
 } from '~/lib/schemas/propAccountOutputs';
 import { profileTabs, routes, withQuery } from '~/lib/site/routes';
-import { api, type RouterOutputs } from '~/trpc/react';
+import { type RouterOutputs, useTRPC } from '~/trpc/react';
 
 import {
     comparableText,
@@ -162,7 +163,10 @@ export function RulebookView({
 }: {
     tradingPlan: TradingPlanSource;
 }) {
-    const rulebookQuery = api.propAccounts.rulebook.get.useQuery();
+    const api = useTRPC();
+    const rulebookQuery = useQuery(
+        api.propAccounts.rulebook.get.queryOptions(),
+    );
     const [isOverwriting, setIsOverwriting] = useState(false);
     if (rulebookQuery.data !== undefined) {
         if (isOverwriting) setIsOverwriting(false);
@@ -1082,8 +1086,11 @@ function RulebookForm({
     stored: StoredRulebook;
     tradingPlan: TradingPlanSource;
 }) {
-    const utilities = api.useUtils();
-    const upsert = api.propAccounts.rulebook.upsert.useMutation();
+    const api = useTRPC();
+    const queryClient = useQueryClient();
+    const upsert = useMutation(
+        api.propAccounts.rulebook.upsert.mutationOptions(),
+    );
     const rulebookReset = useRulebookReset();
     const form = useForm<RulebookFormValues>({
         defaultValues: rulebookToFormValues(stored),
@@ -1108,7 +1115,9 @@ function RulebookForm({
             } catch (error) {
                 toast.error(errorMessage(error));
             } finally {
-                await utilities.propAccounts.invalidate();
+                await queryClient.invalidateQueries(
+                    api.propAccounts.pathFilter(),
+                );
             }
         },
         () => {
@@ -1369,8 +1378,11 @@ function TextField({
 }
 
 function useRulebookReset() {
-    const utilities = api.useUtils();
-    const resetRulebook = api.propAccounts.rulebook.reset.useMutation();
+    const api = useTRPC();
+    const queryClient = useQueryClient();
+    const resetRulebook = useMutation(
+        api.propAccounts.rulebook.reset.mutationOptions(),
+    );
     const reset = async (onReset?: () => void) => {
         try {
             await resetRulebook.mutateAsync();
@@ -1379,7 +1391,7 @@ function useRulebookReset() {
         } catch (error) {
             toast.error(errorMessage(error));
         } finally {
-            await utilities.propAccounts.invalidate();
+            await queryClient.invalidateQueries(api.propAccounts.pathFilter());
         }
     };
     return { isPending: resetRulebook.isPending, reset };

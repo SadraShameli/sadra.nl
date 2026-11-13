@@ -1,9 +1,16 @@
-import { api } from '~/trpc/react';
+import { useQueryClient } from '@tanstack/react-query';
+
+import { useTRPC } from '~/trpc/react';
 
 export function useRefreshCredentials(): () => Promise<void> {
-    const utilities = api.useUtils();
+    const api = useTRPC();
+    const queryClient = useQueryClient();
     return async () => {
-        await utilities.accounting.credentials.list.invalidate();
-        await utilities.accounting.summary.invalidate();
+        await queryClient.invalidateQueries(
+            api.accounting.credentials.list.pathFilter(),
+        );
+        await queryClient.invalidateQueries(
+            api.accounting.summary.pathFilter(),
+        );
     };
 }

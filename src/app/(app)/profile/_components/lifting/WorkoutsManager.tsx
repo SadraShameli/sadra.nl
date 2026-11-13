@@ -1,6 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Calendar, ExternalLink, Play } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useId, useMemo, useState } from 'react';
@@ -46,7 +47,7 @@ import {
 } from '~/lib/lifting/workout-duration';
 import { workoutName } from '~/lib/lifting/workout-name';
 import { routes } from '~/lib/site/routes';
-import { api, type RouterOutputs } from '~/trpc/react';
+import { type RouterOutputs, useTRPC } from '~/trpc/react';
 
 type WorkoutRow = RouterOutputs['lifting']['workout']['list'][number];
 
@@ -75,27 +76,38 @@ const workoutEditSchema = z.object({
 type WorkoutEditValues = z.infer<typeof workoutEditSchema>;
 
 export function WorkoutsManager() {
-    const utilities = api.useUtils();
-    const workouts = api.lifting.workout.list.useQuery({
-        from: new Date(0),
-        limit: 200,
-        offset: 0,
-    });
+    const api = useTRPC();
+    const queryClient = useQueryClient();
+    const workouts = useQuery(
+        api.lifting.workout.list.queryOptions({
+            from: new Date(0),
+            limit: 200,
+            offset: 0,
+        }),
+    );
 
-    const update = api.lifting.workout.update.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: async () => {
-            toast.success('Workout updated');
-            await utilities.lifting.workout.list.invalidate();
-        },
-    });
-    const remove = api.lifting.workout.delete.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: async () => {
-            toast.success('Workout deleted');
-            await utilities.lifting.workout.list.invalidate();
-        },
-    });
+    const update = useMutation(
+        api.lifting.workout.update.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: async () => {
+                toast.success('Workout updated');
+                await queryClient.invalidateQueries(
+                    api.lifting.workout.list.pathFilter(),
+                );
+            },
+        }),
+    );
+    const remove = useMutation(
+        api.lifting.workout.delete.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: async () => {
+                toast.success('Workout deleted');
+                await queryClient.invalidateQueries(
+                    api.lifting.workout.list.pathFilter(),
+                );
+            },
+        }),
+    );
 
     const [editing, setEditing] = useState<null | WorkoutRow>(null);
 

@@ -38,51 +38,54 @@ const toasts = vi.hoisted(() => ({ error: vi.fn(), success: vi.fn() }));
 
 vi.mock('sonner', () => ({ toast: toasts }));
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        accounting: {
-            credentials: {
-                delete: {
-                    useMutation: () => ({
-                        isPending: false,
-                        mutate: backend.remove,
-                    }),
-                },
-                list: {
-                    useQuery: () => ({
-                        data: backend.credentials,
-                        isPending: false,
-                    }),
-                },
-                setActive: {
-                    useMutation: () => ({
-                        isPending: false,
-                        mutate: backend.activate,
-                    }),
-                },
-                test: {
-                    useMutation: () => ({
-                        isPending: false,
-                        mutateAsync: backend.test,
-                    }),
-                },
-                update: {
-                    useMutation: () => ({
-                        error: null,
-                        isPending: false,
-                        mutateAsync: backend.update,
-                    }),
-                },
-            },
-        },
-        useUtils: () => ({
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        procedures: {
             accounting: {
-                credentials: { list: { invalidate: vi.fn() } },
-                summary: { invalidate: vi.fn() },
+                credentials: {
+                    delete: {
+                        mutation: () => ({
+                            isPending: false,
+                            mutate: backend.remove,
+                        }),
+                    },
+                    list: {
+                        query: () => ({
+                            data: backend.credentials,
+                            isPending: false,
+                        }),
+                    },
+                    setActive: {
+                        mutation: () => ({
+                            isPending: false,
+                            mutate: backend.activate,
+                        }),
+                    },
+                    test: {
+                        mutation: () => ({
+                            isPending: false,
+                            mutateAsync: backend.test,
+                        }),
+                    },
+                    update: {
+                        mutation: () => ({
+                            error: null,
+                            isPending: false,
+                            mutateAsync: backend.update,
+                        }),
+                    },
+                },
             },
-        }),
-    },
-}));
+            queryClient: () => ({
+                accounting: {
+                    credentials: { list: { invalidate: vi.fn() } },
+                    summary: { invalidate: vi.fn() },
+                },
+            }),
+        },
+    });
+});
 
 async function flush(): Promise<void> {
     await act(async () => {

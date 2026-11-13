@@ -1,11 +1,7 @@
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
-import type {
-    BookingDirection,
-    CurrencyCode,
-} from '~/lib/accounting/core/types';
+import type { BookingDirection } from '~/lib/accounting/core/types';
 
-import { currencyCodeSchema } from '~/lib/accounting/core/currency';
 import { LedgerId } from '~/lib/accounting/core/ids';
 import { CredentialKind } from '~/lib/accounting/credentials/registry';
 import { VatCode } from '~/lib/accounting/providers/eboekhouden/enums';
@@ -16,6 +12,8 @@ import {
     db,
 } from '~/server/db';
 import { DatabaseSeeder } from '~/server/db/types';
+
+import { seedBankAccountsFor } from './bankAccounts';
 
 interface LedgerReference {
     id: LedgerId;
@@ -38,20 +36,6 @@ const PAYOUTS: LedgerReference = {
     id: LedgerId('48217305'),
     label: '0004 Payouts',
 };
-const WISE_EUR: LedgerReference = {
-    id: LedgerId('51974018'),
-    label: '0005 Wise Business - EUR',
-};
-const WISE_USD: LedgerReference = {
-    id: LedgerId('51974061'),
-    label: '0006 Wise Business - USD',
-};
-
-const BANK_ACCOUNTS: { currency: CurrencyCode; ledger: LedgerReference }[] = [
-    { currency: currencyCodeSchema.parse('EUR'), ledger: WISE_EUR },
-    { currency: currencyCodeSchema.parse('USD'), ledger: WISE_USD },
-];
-
 interface SeedRule {
     direction: BookingDirection;
     display: string;
@@ -217,6 +201,20 @@ const RULES: SeedRule[] = [
     },
     {
         direction: 'IN',
+        display: 'My Funded Futures',
+        ledger: PAYOUTS,
+        match: 'myfunded',
+        vatCode: VatCode.BuEuVerk,
+    },
+    {
+        direction: 'IN',
+        display: 'Rise Works',
+        ledger: PAYOUTS,
+        match: 'riseworks',
+        vatCode: VatCode.BuEuVerk,
+    },
+    {
+        direction: 'IN',
         display: 'TakeProfitTrader',
         ledger: PAYOUTS,
         match: 'takeprofittrader',
@@ -246,6 +244,7 @@ export default class SeedAccountingRules extends DatabaseSeeder {
         const creds = await db
             .select({
                 id: accountingCredential.id,
+                label: accountingCredential.label,
                 userId: accountingCredential.userId,
             })
             .from(accountingCredential)
@@ -253,7 +252,8 @@ export default class SeedAccountingRules extends DatabaseSeeder {
         if (creds.length === 0) return;
 
         for (const cred of creds) {
-            const bankRows = BANK_ACCOUNTS.map((b) => ({
+            const { accounts, isOverride } = seedBankAccountsFor(cred.label);
+            const bankRows = accounts.map((b) => ({
                 credentialId: cred.id,
                 currency: b.currency,
                 ledgerId: b.ledger.id,
@@ -262,9 +262,21 @@ export default class SeedAccountingRules extends DatabaseSeeder {
             }));
             const bankInsert = db
                 .insert(accountingBankAccount)
-                .values(bankRows)
-                .onConflictDoNothing();
-            await bankInsert;
+                .values(bankRows);
+            await (isOverride
+                ? bankInsert.onConflictDoUpdate({
+                      set: {
+                          ledgerId: sql`excluded.ledger_id`,
+                          ledgerLabel: sql`excluded.ledger_label`,
+                          updatedAt: new Date(),
+                      },
+                      target: [
+                          accountingBankAccount.userId,
+                          accountingBankAccount.credentialId,
+                          accountingBankAccount.currency,
+                      ],
+                  })
+                : bankInsert.onConflictDoNothing());
 
             for (const r of RULES) {
                 const ruleUpsert = db

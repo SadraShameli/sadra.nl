@@ -1,5 +1,6 @@
 'use client';
 
+import { useQuery } from '@tanstack/react-query';
 import { NotebookPen } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
@@ -48,7 +49,7 @@ import {
 import { type WilsonInterval } from '~/lib/prop-calculator/stats';
 import { CALCULATOR_SCALAR_BOUNDS } from '~/lib/schemas/url';
 import { type PathWithQuery, routes } from '~/lib/site/routes';
-import { api, type RouterOutputs } from '~/trpc/react';
+import { type RouterOutputs, useTRPC } from '~/trpc/react';
 
 type EdgeReport = RouterOutputs['propAccounts']['edge']['summary'];
 
@@ -67,14 +68,19 @@ const DRIFT_LABEL: Readonly<Record<EdgeDrift, string>> = {
 };
 
 export function EdgeView() {
+    const api = useTRPC();
     const [from, setFrom] = useState('');
     const [to, setTo] = useState('');
     const range = edgeRange(from, to);
     const rangeCheck = checkEdgeRange(range);
-    const summaryQuery = api.propAccounts.edge.summary.useQuery(range, {
-        enabled: rangeCheck.isValid,
-    });
-    const rulebookQuery = api.propAccounts.rulebook.get.useQuery();
+    const summaryQuery = useQuery(
+        api.propAccounts.edge.summary.queryOptions(range, {
+            enabled: rangeCheck.isValid,
+        }),
+    );
+    const rulebookQuery = useQuery(
+        api.propAccounts.rulebook.get.queryOptions(),
+    );
     const sampleThresholds =
         rulebookQuery.data?.samples ?? DEFAULT_RULEBOOK.samples;
 

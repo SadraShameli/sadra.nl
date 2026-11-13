@@ -1,6 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Receipt } from 'lucide-react';
 import { useId } from 'react';
 import { Controller, useForm } from 'react-hook-form';
@@ -48,7 +49,7 @@ import {
     usdCentsToText,
 } from '~/lib/prop-accounts';
 import { feeCreateSchema } from '~/lib/schemas/propAccounts';
-import { api, type RouterOutputs } from '~/trpc/react';
+import { type RouterOutputs, useTRPC } from '~/trpc/react';
 
 import {
     AddRecordButton,
@@ -98,15 +99,20 @@ export function FeesSection({
     readonly plan: FeePrefillPlan | null;
     readonly query: ListQuery<FeeRow>;
 }) {
+    const api = useTRPC();
     const dialog = useRecordDialog<FeeRow>();
-    const utilities = api.useUtils();
-    const remove = api.propAccounts.fee.remove.useMutation({
-        onError: onFailure,
-        onSuccess: () => {
-            toast.success('Fee deleted');
-            return utilities.propAccounts.invalidate();
-        },
-    });
+    const queryClient = useQueryClient();
+    const remove = useMutation(
+        api.propAccounts.fee.remove.mutationOptions({
+            onError: onFailure,
+            onSuccess: () => {
+                toast.success('Fee deleted');
+                return queryClient.invalidateQueries(
+                    api.propAccounts.pathFilter(),
+                );
+            },
+        }),
+    );
     const rows = query.data;
     return (
         <>
@@ -274,9 +280,10 @@ function FeeForm({
     readonly onFailure: (error: unknown) => void;
     readonly plan: FeePrefillPlan | null;
 }) {
-    const utilities = api.useUtils();
-    const create = api.propAccounts.fee.create.useMutation();
-    const update = api.propAccounts.fee.update.useMutation();
+    const api = useTRPC();
+    const queryClient = useQueryClient();
+    const create = useMutation(api.propAccounts.fee.create.mutationOptions());
+    const update = useMutation(api.propAccounts.fee.update.mutationOptions());
     const schema = feeFormSchema(accountId);
     const today = useTodayIsoDate();
     const form = useForm<FeeFormValues>({
@@ -332,7 +339,7 @@ function FeeForm({
         } catch (error) {
             onFailure(error);
         } finally {
-            await utilities.propAccounts.invalidate();
+            await queryClient.invalidateQueries(api.propAccounts.pathFilter());
         }
     };
 

@@ -1,7 +1,6 @@
 import { getSessionCookie } from 'better-auth/cookies';
 import { type NextRequest, NextResponse } from 'next/server';
 
-import { legacyQueryRedirect } from '~/lib/site/legacyCalculatorLinks';
 import { isPrivatePath, loginRedirectFor } from '~/lib/site/privateRoutes';
 
 const TEMPORARY_REDIRECT_STATUS = 307;
@@ -31,8 +30,6 @@ export function proxyRedirect(
     search: string,
     hasSession: boolean,
 ): null | ProxyRedirect {
-    const legacyLocation = legacyQueryRedirect(pathname, search);
-    if (legacyLocation !== null) return temporaryRedirect(legacyLocation);
     return hasSession || !isPrivatePath(pathname)
         ? null
         : temporaryRedirect(loginRedirectFor(pathname, search));

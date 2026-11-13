@@ -1,5 +1,6 @@
 'use client';
 
+import { useQuery } from '@tanstack/react-query';
 import { ArrowLeftRight } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { type DateRange } from 'react-day-picker';
@@ -24,7 +25,7 @@ import { FilterSelect } from '~/components/ui/filter-select';
 import { CurrencyAmount } from '~/lib/accounting/core/money';
 import { CredentialRole } from '~/lib/accounting/credentials/index';
 import { formatDisplayDate } from '~/lib/format';
-import { api } from '~/trpc/react';
+import { useTRPC } from '~/trpc/react';
 
 import { ActiveConnectionNote } from './ActiveConnectionNote';
 import { DIRECTION_OPTIONS, DirectionBadge } from './DirectionBadge';
@@ -36,8 +37,6 @@ const MATCHED = '__matched__';
 const UNKNOWN = '__unknown__';
 const LOOKBACK_DAYS = 90;
 
-type TxnRow = RawTransaction & { match: null | TransactionMatch };
-
 const toIso = (d: Date): string => d.toISOString().slice(0, 10);
 
 const defaultRange = (): DateRange => {
@@ -48,6 +47,8 @@ const defaultRange = (): DateRange => {
 };
 
 export function TransactionsBrowser() {
+    type TxnRow = RawTransaction & { match: null | TransactionMatch };
+    const api = useTRPC();
     const {
         accounting,
         isLoading: isCredentialsLoading,
@@ -69,14 +70,16 @@ export function TransactionsBrowser() {
             : null;
     }, [dateRange]);
 
-    const txnsQ = api.accounting.transactions.list.useQuery(
-        {
-            accountingCredentialId: accountingCredentialId || undefined,
-            credentialId,
-            from: range?.from ?? '',
-            to: range?.to ?? '',
-        },
-        { enabled: !!credentialId && !!range },
+    const txnsQ = useQuery(
+        api.accounting.transactions.list.queryOptions(
+            {
+                accountingCredentialId: accountingCredentialId || undefined,
+                credentialId,
+                from: range?.from ?? '',
+                to: range?.to ?? '',
+            },
+            { enabled: !!credentialId && !!range },
+        ),
     );
 
     const rows = useMemo(() => txnsQ.data ?? [], [txnsQ.data]);

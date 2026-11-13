@@ -1,6 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Activity, Plus, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
@@ -33,59 +34,73 @@ import {
     type ReadingCreateAdminInput,
     readingCreateAdminSchema,
 } from '~/lib/schemas/sensor-hub';
-import { api } from '~/trpc/react';
+import { useTRPC } from '~/trpc/react';
 
 import { SensorHubScopeFilters, useSensorHubScope } from './SensorHubScope';
-
-type ReadingRow = {
-    created_at: Date;
-    device_id: number;
-    id: number;
-    location_id: number;
-    sensor_id: number;
-    value: number;
-};
 
 type SensorOption = { id: number; name: string; unit: null | string };
 
 export function ReadingsPanel() {
-    const utilities = api.useUtils();
-    const locations = api.location.listAdmin.useQuery();
-    const devices = api.device.listAdmin.useQuery();
-    const sensors = api.sensor.listAdmin.useQuery();
+    type ReadingRow = {
+        created_at: Date;
+        device_id: number;
+        id: number;
+        location_id: number;
+        sensor_id: number;
+        value: number;
+    };
+    const api = useTRPC();
+    const queryClient = useQueryClient();
+    const locations = useQuery(api.location.listAdmin.queryOptions());
+    const devices = useQuery(api.device.listAdmin.queryOptions());
+    const sensors = useQuery(api.sensor.listAdmin.queryOptions());
 
     const scope = useSensorHubScope();
     const [selected, setSelected] = useState<ReadingRow[]>([]);
 
-    const readings = api.reading.listAdmin.useQuery({
-        device_id: scope.scope.deviceId,
-        limit: 500,
-        location_id: scope.scope.locationId,
-        sensor_id: scope.scope.sensorId,
-    });
+    const readings = useQuery(
+        api.reading.listAdmin.queryOptions({
+            device_id: scope.scope.deviceId,
+            limit: 500,
+            location_id: scope.scope.locationId,
+            sensor_id: scope.scope.sensorId,
+        }),
+    );
 
-    const del = api.reading.delete.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: async () => {
-            toast.success('Reading deleted.');
-            await utilities.reading.listAdmin.invalidate();
-        },
-    });
-    const delBulk = api.reading.deleteBulk.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: async (r) => {
-            toast.success(`Deleted ${r.deleted} reading(s).`);
-            setSelected([]);
-            await utilities.reading.listAdmin.invalidate();
-        },
-    });
-    const readingCreateMutation = api.reading.createAdmin.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: async () => {
-            toast.success('Reading created.');
-            await utilities.reading.listAdmin.invalidate();
-        },
-    });
+    const del = useMutation(
+        api.reading.delete.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: async () => {
+                toast.success('Reading deleted.');
+                await queryClient.invalidateQueries(
+                    api.reading.listAdmin.pathFilter(),
+                );
+            },
+        }),
+    );
+    const delBulk = useMutation(
+        api.reading.deleteBulk.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: async (r) => {
+                toast.success(`Deleted ${r.deleted} reading(s).`);
+                setSelected([]);
+                await queryClient.invalidateQueries(
+                    api.reading.listAdmin.pathFilter(),
+                );
+            },
+        }),
+    );
+    const readingCreateMutation = useMutation(
+        api.reading.createAdmin.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: async () => {
+                toast.success('Reading created.');
+                await queryClient.invalidateQueries(
+                    api.reading.listAdmin.pathFilter(),
+                );
+            },
+        }),
+    );
     const [newOpen, setNewOpen] = useState(false);
 
     const rows = readings.data ?? [];

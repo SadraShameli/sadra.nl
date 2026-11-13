@@ -1,8 +1,9 @@
 'use client';
 
+import { useQuery } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 
-import { api } from '~/trpc/react';
+import { useTRPC } from '~/trpc/react';
 
 export interface TaxCodeOption {
     code: string;
@@ -10,9 +11,12 @@ export interface TaxCodeOption {
 }
 
 export function useTaxCodes(credentialId: string) {
-    const query = api.accounting.taxCodes.list.useQuery(
-        { credentialId },
-        { enabled: !!credentialId },
+    const api = useTRPC();
+    const query = useQuery(
+        api.accounting.taxCodes.list.queryOptions(
+            { credentialId },
+            { enabled: !!credentialId },
+        ),
     );
     const options = useMemo(() => query.data ?? [], [query.data]);
     const labelByCode = useMemo(() => {

@@ -1,6 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, CheckCircle2, KeyRound, Star } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
@@ -41,7 +42,7 @@ import {
     type CredentialUpdateInput,
     credentialUpdateSchema,
 } from '~/lib/schemas/accounting';
-import { api } from '~/trpc/react';
+import { useTRPC } from '~/trpc/react';
 
 import { CredentialBadge } from './CredentialBadge';
 import { CredentialFormFields } from './CredentialFormFields';
@@ -75,18 +76,28 @@ const ROLE_SECTION_DESCRIPTION: Record<CredentialRole, string> = {
 };
 
 export function ConnectionsManager() {
-    const utilities = api.useUtils();
+    const api = useTRPC();
+    const queryClient = useQueryClient();
     const refresh = useRefreshCredentials();
-    const credentialsQ = api.accounting.credentials.list.useQuery();
-    const testMut = api.accounting.credentials.test.useMutation();
-    const activationMutation = api.accounting.credentials.setActive.useMutation(
-        {
-            onSuccess: () => utilities.accounting.credentials.list.invalidate(),
-        },
+    const credentialsQ = useQuery(
+        api.accounting.credentials.list.queryOptions(),
     );
-    const deletionMutation = api.accounting.credentials.delete.useMutation({
-        onSuccess: refresh,
-    });
+    const testMut = useMutation(
+        api.accounting.credentials.test.mutationOptions(),
+    );
+    const activationMutation = useMutation(
+        api.accounting.credentials.setActive.mutationOptions({
+            onSuccess: () =>
+                queryClient.invalidateQueries(
+                    api.accounting.credentials.list.pathFilter(),
+                ),
+        }),
+    );
+    const deletionMutation = useMutation(
+        api.accounting.credentials.delete.mutationOptions({
+            onSuccess: refresh,
+        }),
+    );
 
     const [editing, setEditing] = useState<null | StoredCredential>(null);
 
@@ -116,7 +127,9 @@ export function ConnectionsManager() {
             toast.success(
                 `${cred.label}: OK · ${result.detail} · ${result.latencyMs}ms`,
             );
-            await utilities.accounting.credentials.list.invalidate();
+            await queryClient.invalidateQueries(
+                api.accounting.credentials.list.pathFilter(),
+            );
         } else {
             toast.error(`${cred.label}: ${result.detail}`);
         }
@@ -297,7 +310,10 @@ function EditCredentialFields({
     onClose: () => void;
     onSaved: () => Promise<void>;
 }) {
-    const updateMut = api.accounting.credentials.update.useMutation();
+    const api = useTRPC();
+    const updateMut = useMutation(
+        api.accounting.credentials.update.mutationOptions(),
+    );
     const form = useForm<CredentialUpdateInput>({
         defaultValues: {
             id: credential.id,

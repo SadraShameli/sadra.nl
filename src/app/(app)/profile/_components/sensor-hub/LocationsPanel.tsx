@@ -1,6 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { MapPin, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -30,7 +31,7 @@ import {
     locationCreateSchema,
     locationUpdateSchema,
 } from '~/lib/schemas/sensor-hub';
-import { api } from '~/trpc/react';
+import { useTRPC } from '~/trpc/react';
 
 type EditLocationValues = {
     location_name: string;
@@ -48,29 +49,42 @@ type LocationRow = {
 const editLocationSchema = locationUpdateSchema.omit({ id: true });
 
 export function LocationsPanel() {
-    const utilities = api.useUtils();
-    const locs = api.location.listAdmin.useQuery();
-    const create = api.location.create.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: async () => {
-            toast.success('Location created.');
-            await utilities.location.listAdmin.invalidate();
-        },
-    });
-    const update = api.location.update.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: async () => {
-            toast.success('Location updated.');
-            await utilities.location.listAdmin.invalidate();
-        },
-    });
-    const del = api.location.delete.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: async () => {
-            toast.success('Location deleted.');
-            await utilities.location.listAdmin.invalidate();
-        },
-    });
+    const api = useTRPC();
+    const queryClient = useQueryClient();
+    const locs = useQuery(api.location.listAdmin.queryOptions());
+    const create = useMutation(
+        api.location.create.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: async () => {
+                toast.success('Location created.');
+                await queryClient.invalidateQueries(
+                    api.location.listAdmin.pathFilter(),
+                );
+            },
+        }),
+    );
+    const update = useMutation(
+        api.location.update.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: async () => {
+                toast.success('Location updated.');
+                await queryClient.invalidateQueries(
+                    api.location.listAdmin.pathFilter(),
+                );
+            },
+        }),
+    );
+    const del = useMutation(
+        api.location.delete.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: async () => {
+                toast.success('Location deleted.');
+                await queryClient.invalidateQueries(
+                    api.location.listAdmin.pathFilter(),
+                );
+            },
+        }),
+    );
 
     const [newOpen, setNewOpen] = useState(false);
     const [editing, setEditing] = useState<LocationRow | null>(null);

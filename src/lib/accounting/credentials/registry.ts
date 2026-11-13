@@ -4,6 +4,7 @@ export enum CredentialKind {
     EBoekhouden = 'eboekhouden',
     Moneybird = 'moneybird',
     Plane = 'plane',
+    Rise = 'rise',
     Wise = 'wise',
 }
 

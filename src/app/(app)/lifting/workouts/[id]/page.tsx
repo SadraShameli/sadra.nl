@@ -7,7 +7,7 @@ import { PageTransition } from '~/components/PageTransition';
 import { requireSessionUser } from '~/lib/auth/guards';
 import { cn } from '~/lib/utilities';
 import { loadOrNotFound, routeIdOrNotFound } from '~/trpc/loadOrNotFound';
-import { api, HydrateClient } from '~/trpc/server';
+import { caller, HydrateClient, prefetch, trpc } from '~/trpc/server';
 
 export async function generateMetadata({
     params,
@@ -44,9 +44,9 @@ async function LiftingWorkoutDetailContent({
     await requireSessionUser();
     const { id } = await params;
     const workout = await loadOrNotFound(() =>
-        api.lifting.workout.get({ id: routeIdOrNotFound(id) }),
+        caller.lifting.workout.get({ id: routeIdOrNotFound(id) }),
     );
-    await api.lifting.settings.get.prefetch();
+    await prefetch(trpc.lifting.settings.get.queryOptions());
     return (
         <HydrateClient>
             <WorkoutDetailView initial={workout} />

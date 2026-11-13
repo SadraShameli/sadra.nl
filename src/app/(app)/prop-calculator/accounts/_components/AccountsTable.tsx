@@ -1,5 +1,6 @@
 'use client';
 
+import { useQuery } from '@tanstack/react-query';
 import {
     Archive,
     ArchiveRestore,
@@ -51,7 +52,7 @@ import {
 } from '~/lib/prop-accounts';
 import { routes } from '~/lib/site/routes';
 import { parseEnum } from '~/lib/utilities';
-import { api } from '~/trpc/react';
+import { useTRPC } from '~/trpc/react';
 
 import {
     ACCOUNT_LIST_INPUT,
@@ -144,11 +145,19 @@ export function AccountsTableWithValues({
 }: {
     readonly values: AccountValues;
 }) {
-    const accountsQuery =
-        api.propAccounts.account.list.useQuery(ACCOUNT_LIST_INPUT);
-    const snapshotsQuery = api.propAccounts.snapshot.latestTwoForAll.useQuery();
-    const groupsQuery = api.propAccounts.copyGroup.list.useQuery();
-    const externalFirmsQuery = api.propAccounts.externalFirm.list.useQuery();
+    const api = useTRPC();
+    const accountsQuery = useQuery(
+        api.propAccounts.account.list.queryOptions(ACCOUNT_LIST_INPUT),
+    );
+    const snapshotsQuery = useQuery(
+        api.propAccounts.snapshot.latestTwoForAll.queryOptions(),
+    );
+    const groupsQuery = useQuery(
+        api.propAccounts.copyGroup.list.queryOptions(),
+    );
+    const externalFirmsQuery = useQuery(
+        api.propAccounts.externalFirm.list.queryOptions(),
+    );
     const [filters, setFilters] = useState<AccountListFilters>(
         DEFAULT_ACCOUNT_LIST_FILTERS,
     );

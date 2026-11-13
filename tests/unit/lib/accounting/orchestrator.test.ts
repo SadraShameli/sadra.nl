@@ -106,6 +106,39 @@ describe('BookingAggregator', () => {
         expect(result.bookings[0]?.bank).toEqual(WISE_EUR);
     });
 
+    it('books a USD payout settled in EUR on the EUR bank but converts from USD', () => {
+        const result = build([
+            tx({
+                bankCurrency: EUR,
+                direction: 'IN',
+                merchant: 'Apex Trader Funding',
+                sourceAmount: 110,
+                sourceCurrency: USD,
+                txnId: 'plane-eur-1',
+            }),
+        ]);
+        expect(result.bookings[0]?.bank).toEqual(WISE_EUR);
+        expect(result.bookings[0]?.amountEur).toBe(100);
+        expect(result.bookings[0]?.sourceCurrency).toBe(USD);
+    });
+
+    it('reports the bank currency, not the source currency, when no bank is configured', () => {
+        const result = build(
+            [
+                tx({
+                    bankCurrency: GBP,
+                    direction: 'IN',
+                    merchant: 'Apex Trader Funding',
+                    sourceCurrency: USD,
+                    txnId: 'plane-gbp-1',
+                }),
+            ],
+            new Map([[USD, WISE_USD]]),
+        );
+        expect(result.bookings).toHaveLength(0);
+        expect(result.missingBankCurrencies).toEqual([GBP]);
+    });
+
     it('aggregates transactions sharing the same txnId', () => {
         const result = build([
             tx({ sourceAmount: 50, txnId: 't-1' }),

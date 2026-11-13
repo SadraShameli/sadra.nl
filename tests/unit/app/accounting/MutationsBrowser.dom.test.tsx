@@ -56,76 +56,82 @@ vi.mock('next/link', () => ({
     ),
 }));
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        accounting: {
-            credentials: {
-                list: {
-                    useQuery: () => ({
-                        data: harness.credentials,
-                        isPending: false,
-                    }),
-                },
-            },
-            ledgers: {
-                list: {
-                    useQuery: () => ({
-                        data:
-                            harness.ledgersError === null
-                                ? [
-                                      {
-                                          category: 'BAL',
-                                          code: '1100',
-                                          description: 'Wise EUR',
-                                          externalId: BANK_LEDGER_ID,
-                                          group: null,
-                                      },
-                                  ]
-                                : undefined,
-                        error: harness.ledgersError,
-                        isPending: false,
-                    }),
-                },
-            },
-            mutations: {
-                count: {
-                    useQuery: (input: CountInput) => {
-                        harness.countInputs.push(input);
-                        return { data: harness.totalCount };
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        procedures: {
+            accounting: {
+                credentials: {
+                    list: {
+                        query: () => ({
+                            data: harness.credentials,
+                            isPending: false,
+                        }),
                     },
                 },
-                list: {
-                    useQuery: ({
-                        limit,
-                        offset,
-                    }: {
-                        limit: number;
-                        offset: number;
-                    }) => {
-                        harness.listOffsets.push(offset);
-                        return {
-                            data: Array.from({ length: limit }, (_, index) => ({
-                                amount: index === 0 ? 1906.86 : 12,
-                                date: '2026-10-07',
-                                description: null,
-                                externalId: String(offset + index + 1),
-                                ledgerId: BANK_LEDGER_ID,
-                                paymentReference: null,
-                                rows: [],
-                                type:
-                                    index === 0
-                                        ? MutationType.MoneyReceived
-                                        : MutationType.MoneySent,
-                            })),
-                            error: null,
+                ledgers: {
+                    list: {
+                        query: () => ({
+                            data:
+                                harness.ledgersError === null
+                                    ? [
+                                          {
+                                              category: 'BAL',
+                                              code: '1100',
+                                              description: 'Wise EUR',
+                                              externalId: BANK_LEDGER_ID,
+                                              group: null,
+                                          },
+                                      ]
+                                    : undefined,
+                            error: harness.ledgersError,
                             isPending: false,
-                        };
+                        }),
+                    },
+                },
+                mutations: {
+                    count: {
+                        query: (input: CountInput) => {
+                            harness.countInputs.push(input);
+                            return { data: harness.totalCount };
+                        },
+                    },
+                    list: {
+                        query: ({
+                            limit,
+                            offset,
+                        }: {
+                            limit: number;
+                            offset: number;
+                        }) => {
+                            harness.listOffsets.push(offset);
+                            return {
+                                data: Array.from(
+                                    { length: limit },
+                                    (_, index) => ({
+                                        amount: index === 0 ? 1906.86 : 12,
+                                        date: '2026-10-07',
+                                        description: null,
+                                        externalId: String(offset + index + 1),
+                                        ledgerId: BANK_LEDGER_ID,
+                                        paymentReference: null,
+                                        rows: [],
+                                        type:
+                                            index === 0
+                                                ? MutationType.MoneyReceived
+                                                : MutationType.MoneySent,
+                                    }),
+                                ),
+                                error: null,
+                                isPending: false,
+                            };
+                        },
                     },
                 },
             },
         },
-    },
-}));
+    });
+});
 
 const BOOKS = {
     id: '00000000-0000-4000-8000-0000000000b1',

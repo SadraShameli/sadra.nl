@@ -1,6 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bookmark, RotateCcw } from 'lucide-react';
 import { useEffect, useId, useState, useSyncExternalStore } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
@@ -29,7 +30,7 @@ import { useSession } from '~/lib/auth/client';
 import { errorMessage } from '~/lib/errorMessage';
 import { type TradingFirm } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
-import { api } from '~/trpc/react';
+import { useTRPC } from '~/trpc/react';
 
 import type { CalculatorState } from './types';
 
@@ -59,7 +60,6 @@ import {
 const savedScenarioFormSchema = z.object({
     name: z.string().trim().min(1),
 });
-type SavedScenarioFormValues = z.infer<typeof savedScenarioFormSchema>;
 
 const LOADING_SCENARIOS_TEXT = 'Loading saved scenarios';
 const SCENARIO_SKELETON_ROWS = ['first', 'second', 'third'] as const;
@@ -155,18 +155,23 @@ function AccountScenarios({
     state,
     userId,
 }: ScenarioStoreProperties & { userId: string }) {
-    const utilities = api.useUtils();
-    const listQuery = api.propAccounts.scenario.list.useQuery(undefined, {
-        refetchOnMount: true,
-    });
-    const { isPending: isSaving, mutateAsync: saveScenario } =
-        api.propAccounts.scenario.save.useMutation();
-    const { isPending: isRemoving, mutateAsync: removeScenario } =
-        api.propAccounts.scenario.remove.useMutation();
+    const api = useTRPC();
+    const queryClient = useQueryClient();
+    const listQuery = useQuery(
+        api.propAccounts.scenario.list.queryOptions(undefined, {
+            refetchOnMount: true,
+        }),
+    );
+    const { isPending: isSaving, mutateAsync: saveScenario } = useMutation(
+        api.propAccounts.scenario.save.mutationOptions(),
+    );
+    const { isPending: isRemoving, mutateAsync: removeScenario } = useMutation(
+        api.propAccounts.scenario.remove.mutationOptions(),
+    );
     const { isPending: isImportingMany, mutateAsync: importScenarios } =
-        api.propAccounts.scenario.importMany.useMutation();
+        useMutation(api.propAccounts.scenario.importMany.mutationOptions());
     const { isPending: isClearing, mutateAsync: removeAllScenarios } =
-        api.propAccounts.scenario.removeAll.useMutation();
+        useMutation(api.propAccounts.scenario.removeAll.mutationOptions());
     const isImporting = useSyncExternalStore(
         subscribeToImportRuns,
         () => scenarioImportRuns.isRunning(userId),
@@ -178,9 +183,10 @@ function AccountScenarios({
         if (isScenarioImportDone(userId)) return;
         void scenarioImportRuns.run(userId, async () => {
             try {
-                const server = await utilities.propAccounts.scenario.list.fetch(
-                    undefined,
-                    { staleTime: 0 },
+                const server = await queryClient.query(
+                    api.propAccounts.scenario.list.queryOptions(undefined, {
+                        staleTime: 0,
+                    }),
                 );
                 const outcome = await importLocalScenarios({
                     importMany: importScenarios,
@@ -196,16 +202,21 @@ function AccountScenarios({
                         toast.success(notice);
                     }
                 }
-                await utilities.propAccounts.scenario.list.invalidate();
+                await queryClient.invalidateQueries(
+                    api.propAccounts.scenario.list.pathFilter(),
+                );
             } catch (error) {
                 toast.error(
                     `Could not import saved scenarios from this browser: ${errorMessage(error)}`,
                 );
             }
         });
-    }, [importScenarios, userId, utilities]);
+    }, [api, importScenarios, queryClient, userId]);
 
-    const refresh = () => utilities.propAccounts.scenario.list.invalidate();
+    const refresh = () =>
+        queryClient.invalidateQueries(
+            api.propAccounts.scenario.list.pathFilter(),
+        );
 
     const handleSave = async (name: string) => {
         const validation = validateAccountScenario(
@@ -397,6 +408,7 @@ function ScenarioPanel<TRecord extends SavedScenarioRecord>({
     onSave,
     scenarios,
 }: ScenarioPanelProperties<TRecord>) {
+    type SavedScenarioFormValues = z.infer<typeof savedScenarioFormSchema>;
     const form = useForm<SavedScenarioFormValues>({
         defaultValues: { name: '' },
         resolver: zodResolver(savedScenarioFormSchema),

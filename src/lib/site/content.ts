@@ -249,14 +249,14 @@ export const siteContent: SiteData = {
         {
             platform: 'instagram',
             title: 'Instagram',
-            url: 'https://instagram.com/sadra_shml',
+            url: 'https://www.instagram.com/sadra_shml/',
         },
     ],
     socialLinks: [
         {
             platform: 'instagram',
             title: 'Instagram',
-            url: 'https://instagram.com/sadra_shml',
+            url: 'https://www.instagram.com/sadra_shml/',
         },
         {
             platform: 'youtube',
@@ -530,7 +530,6 @@ export const projectTradingBot = {
     summary:
         'A systematic trading framework used to research strategies and operate live trading across assets and timeframes.',
     title: 'TradingBot',
-    url: 'https://github.com/SadraShameli/TradingBot',
 } satisfies PortfolioSectionView;
 
 export const experienceTrading: PortfolioSectionView = {
@@ -547,7 +546,6 @@ export const experienceTrading: PortfolioSectionView = {
     summary:
         'Independent futures daytrader with experience in prop-firm evaluations, funded trading and trading my own capital.',
     title: 'Independent trading',
-    url: projectTradingBot.url,
 };
 
 export const projectSadraNl: PortfolioSectionView = {
@@ -587,7 +585,7 @@ export const projectMinoMarkt = {
     imageUrl: MinoMarktPreviewImage.src,
     location: {
         title: 'Alkmaar, The Netherlands',
-        url: 'https://maps.app.goo.gl/2c1ZpKjEK1Z5Bg3T7',
+        url: 'https://www.google.com/maps/search/?api=1&query=Mino%20Markt%20%26%20Grill%20Alkmaar',
     },
     role: 'Persian markt & grill',
     skills: [

@@ -21,10 +21,10 @@ const harness = vi.hoisted(() => {
             {},
             {
                 get: (_target, key) => {
-                    if (key === 'useQuery') {
+                    if (key === 'query') {
                         return () => ({ data: undefined, error: null });
                     }
-                    if (key === 'useMutation') {
+                    if (key === 'mutation') {
                         return () => ({
                             isPending: false,
                             mutate: vi.fn(),
@@ -47,14 +47,17 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        propAccounts: harness.procedure(),
-        useUtils: () => ({
-            propAccounts: { invalidate: () => Promise.resolve() },
-        }),
-    },
-}));
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        procedures: {
+            propAccounts: harness.procedure(),
+            queryClient: () => ({
+                propAccounts: { invalidate: () => Promise.resolve() },
+            }),
+        },
+    });
+});
 
 function pricedPlan(): { listCents: number; plan: Plan } {
     for (const firm of ALL_FIRMS) {

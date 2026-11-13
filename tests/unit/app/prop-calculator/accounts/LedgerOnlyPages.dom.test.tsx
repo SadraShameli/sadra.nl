@@ -97,10 +97,10 @@ const harness = vi.hoisted(() => {
                 get(_target, key) {
                     if (typeof key !== 'string') return;
                     const name = path.join('.');
-                    if (key === 'useQuery') {
+                    if (key === 'query') {
                         return () => queries.get(name) ?? pending;
                     }
-                    if (key === 'useMutation') {
+                    if (key === 'mutation') {
                         return () => ({
                             error: null,
                             isPending: false,
@@ -133,7 +133,7 @@ const harness = vi.hoisted(() => {
     return {
         api: {
             propAccounts: node(['propAccounts']),
-            useUtils: () => ({ propAccounts: node(['utils']) }),
+            queryClient: () => ({ propAccounts: node(['utils']) }),
         },
         mutateAsyncOf,
         queries,
@@ -168,7 +168,12 @@ vi.mock('~/lib/auth/client', () => ({
     useSession: () => harness.session.current,
 }));
 
-vi.mock('~/trpc/react', () => ({ api: harness.api }));
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        procedures: harness.api,
+    });
+});
 
 const TODAY = '2026-09-26';
 const USER_ID = 'user-a';

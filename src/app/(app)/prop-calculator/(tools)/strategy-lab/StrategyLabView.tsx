@@ -12,7 +12,7 @@ import { PanelSkeleton } from '~/app/(app)/prop-calculator/_components/PanelSkel
 import { ToolId } from '~/app/(app)/prop-calculator/_components/toolCatalog';
 import { ToolPageHeading } from '~/app/(app)/prop-calculator/_components/ToolPageHeading';
 import { ToolSection } from '~/app/(app)/prop-calculator/_components/ToolSection';
-import { LegacySection } from '~/lib/site/legacyCalculatorLinks';
+import { ToolSectionId } from '~/lib/site/toolSectionIds';
 
 const StrategyLabPanel = dynamic(
     () => import('~/app/(app)/prop-calculator/_components/StrategyLabPanel'),
@@ -28,7 +28,7 @@ export function StrategyLabView() {
             <div className="app-prop-calculator__strategy-lab-page mb-10 flex flex-col gap-6">
                 <InputsSummary evalLadderScope={EvalLadderScope.NotUsedHere} />
                 <ToolSection
-                    id={LegacySection.StrategyLab}
+                    id={ToolSectionId.StrategyLab}
                     srOnlyHeading
                     title="Strategy comparison"
                 >

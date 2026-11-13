@@ -181,21 +181,16 @@ describe('base simulation', () => {
     });
 
     it.each([
-        [true, true, true, true],
-        [false, true, true, false],
-        [true, false, true, false],
-        [true, true, false, false],
-        [false, false, false, false],
+        [true, true, true],
+        [false, true, false],
+        [true, false, false],
+        [false, false, false],
     ])(
-        'runs only when mounted=%s, legacy hash settled=%s and a consumer=%s all hold (%s)',
-        (mounted, legacyHashSettled, hasConsumer, expected) => {
-            expect(
-                shouldRunBaseSimulation({
-                    hasConsumer,
-                    legacyHashSettled,
-                    mounted,
-                }),
-            ).toBe(expected);
+        'runs only when mounted=%s and a consumer=%s both hold (%s)',
+        (mounted, hasConsumer, expected) => {
+            expect(shouldRunBaseSimulation({ hasConsumer, mounted })).toBe(
+                expected,
+            );
         },
     );
 });

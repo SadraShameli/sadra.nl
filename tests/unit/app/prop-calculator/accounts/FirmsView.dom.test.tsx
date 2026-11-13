@@ -71,7 +71,7 @@ const harness = vi.hoisted(() => {
     return {
         queries,
         query: (name: string) => ({
-            useQuery: () => queries.get(name) ?? pending,
+            query: () => queries.get(name) ?? pending,
         }),
         reset() {
             queries.clear();
@@ -97,31 +97,34 @@ vi.mock('~/lib/auth/client', () => ({
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        propAccounts: {
-            account: { list: harness.query('account.list') },
-            edge: { summary: harness.query('edge.summary') },
-            event: { list: harness.query('event.list') },
-            externalFirm: { list: harness.query('externalFirm.list') },
-            fee: { list: harness.query('fee.list') },
-            firmEngagement: {
-                list: harness.query('firmEngagement.list'),
-                set: {
-                    useMutation: () => ({
-                        isPending: false,
-                        mutateAsync: harness.set,
-                    }),
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        procedures: {
+            propAccounts: {
+                account: { list: harness.query('account.list') },
+                edge: { summary: harness.query('edge.summary') },
+                event: { list: harness.query('event.list') },
+                externalFirm: { list: harness.query('externalFirm.list') },
+                fee: { list: harness.query('fee.list') },
+                firmEngagement: {
+                    list: harness.query('firmEngagement.list'),
+                    set: {
+                        mutation: () => ({
+                            isPending: false,
+                            mutateAsync: harness.set,
+                        }),
+                    },
                 },
+                payout: { list: harness.query('payout.list') },
+                rulebook: { get: harness.query('rulebook.get') },
             },
-            payout: { list: harness.query('payout.list') },
-            rulebook: { get: harness.query('rulebook.get') },
+            queryClient: () => ({
+                propAccounts: { invalidate: () => Promise.resolve() },
+            }),
         },
-        useUtils: () => ({
-            propAccounts: { invalidate: () => Promise.resolve() },
-        }),
-    },
-}));
+    });
+});
 
 function account(
     id: string,

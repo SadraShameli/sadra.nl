@@ -1,6 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { History } from 'lucide-react';
 import { useId, useMemo, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
@@ -53,7 +54,7 @@ import {
 } from '~/lib/prop-accounts';
 import { type FirmId, parseFirmId } from '~/lib/prop-calculator';
 import { eventRecordSchema } from '~/lib/schemas/propAccounts';
-import { api, type RouterOutputs } from '~/trpc/react';
+import { type RouterOutputs, useTRPC } from '~/trpc/react';
 
 import { type ListQuery, ListQueryStatus } from './DetailParts';
 import {
@@ -85,8 +86,6 @@ const eventFormShape = z.object({
     occurredOn: z.string(),
 });
 
-type EventFormValues = z.input<typeof eventFormShape>;
-
 const EVENT_KIND_REQUIRED_MESSAGE = 'Choose the event to record.';
 
 const LEDGER_ONLY_EVENTS_NOTE =
@@ -109,14 +108,20 @@ export function EventsSection({
     readonly state: AccountLifecycleState;
     readonly tracking: AccountTracking;
 }) {
+    const api = useTRPC();
     const options = plan === null ? [] : eventOptions(plan, state);
     const rows = query.data;
-    const accountQuery = api.propAccounts.account.get.useQuery({
-        id: accountId,
-    });
-    const externalFirmsQuery = api.propAccounts.externalFirm.list.useQuery();
-    const accountsQuery =
-        api.propAccounts.account.list.useQuery(ACCOUNT_LIST_INPUT);
+    const accountQuery = useQuery(
+        api.propAccounts.account.get.queryOptions({
+            id: accountId,
+        }),
+    );
+    const externalFirmsQuery = useQuery(
+        api.propAccounts.externalFirm.list.queryOptions(),
+    );
+    const accountsQuery = useQuery(
+        api.propAccounts.account.list.queryOptions(ACCOUNT_LIST_INPUT),
+    );
     const firmColumns = firmColumnsOf(accountQuery.data);
     const externalFirms = externalFirmsQuery.data ?? [];
     const [movedLiveOn, setMovedLiveOn] = useState<null | string>(null);
@@ -226,8 +231,10 @@ function EventForm({
     readonly options: readonly EventOption[];
     readonly preview: EventPreviewer;
 }) {
-    const utilities = api.useUtils();
-    const record = api.propAccounts.event.record.useMutation();
+    type EventFormValues = z.input<typeof eventFormShape>;
+    const api = useTRPC();
+    const queryClient = useQueryClient();
+    const record = useMutation(api.propAccounts.event.record.mutationOptions());
     const schema = eventFormSchema(accountId);
     const today = useTodayIsoDate();
     const form = useForm<EventFormValues>({
@@ -318,7 +325,7 @@ function EventForm({
         } catch (error) {
             onFailure(error);
         } finally {
-            await utilities.propAccounts.invalidate();
+            await queryClient.invalidateQueries(api.propAccounts.pathFilter());
         }
     };
 
@@ -612,18 +619,23 @@ function MovedLiveSuggestion({
     readonly onDismiss: () => void;
     readonly sentLiveOn: string;
 }) {
-    const utilities = api.useUtils();
+    const api = useTRPC();
+    const queryClient = useQueryClient();
     const firmLabel = firmKeyLabel(firmKeyOf(firmColumns), externalFirms);
-    const engagementMutation = api.propAccounts.firmEngagement.set.useMutation({
-        onError: (error) => {
-            toast.error(error.message);
-        },
-        onSuccess: () => {
-            toast.success(`${firmLabel} marked sent live`);
-            onDismiss();
-            return utilities.propAccounts.invalidate();
-        },
-    });
+    const engagementMutation = useMutation(
+        api.propAccounts.firmEngagement.set.mutationOptions({
+            onError: (error) => {
+                toast.error(error.message);
+            },
+            onSuccess: () => {
+                toast.success(`${firmLabel} marked sent live`);
+                onDismiss();
+                return queryClient.invalidateQueries(
+                    api.propAccounts.pathFilter(),
+                );
+            },
+        }),
+    );
 
     return (
         <StatusRow

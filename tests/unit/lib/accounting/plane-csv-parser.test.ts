@@ -85,6 +85,20 @@ describe('PlaneCsvParser', () => {
         expect(eurLabeledRow?.sourceCurrency).toBe('USD');
     });
 
+    it('routes a row to the currency named in its bank account column', () => {
+        const parser = new PlaneCsvParser();
+        const txns = parser.parse(REAL_EXPORT_SAMPLE, {
+            counterpartName: 'Apex Trader Funding',
+        });
+
+        expect(txns.find((t) => t.date === '2026-03-18')?.bankCurrency).toBe(
+            'EUR',
+        );
+        expect(
+            txns.find((t) => t.date === '2026-06-29')?.bankCurrency,
+        ).toBeUndefined();
+    });
+
     it('synthesizes a stable txnId from date, bank account, currency, and amount', () => {
         const parser = new PlaneCsvParser();
         const txns = parser.parse(REAL_EXPORT_SAMPLE, {

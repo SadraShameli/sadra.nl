@@ -8,31 +8,36 @@ const harness = vi.hoisted(() => ({
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        lifting: {
-            program: {
-                deleteCustom: { useMutation: harness.idle },
-                listMine: {
-                    useQuery: () => ({
-                        data: { enrollments: [], owned: [] },
-                        isLoading: false,
-                    }),
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        procedures: {
+            lifting: {
+                program: {
+                    deleteCustom: { mutation: harness.idle },
+                    listMine: {
+                        query: () => ({
+                            data: { enrollments: [], owned: [] },
+                            isLoading: false,
+                        }),
+                    },
+                    listOfficial: {
+                        query: () => ({ data: [], isLoading: false }),
+                    },
+                    unenroll: { mutation: harness.idle },
                 },
-                listOfficial: {
-                    useQuery: () => ({ data: [], isLoading: false }),
+                workout: {
+                    delete: { mutation: harness.idle },
+                    list: {
+                        query: () => ({ data: [], isLoading: false }),
+                    },
+                    update: { mutation: harness.idle },
                 },
-                unenroll: { useMutation: harness.idle },
             },
-            workout: {
-                delete: { useMutation: harness.idle },
-                list: { useQuery: () => ({ data: [], isLoading: false }) },
-                update: { useMutation: harness.idle },
-            },
+            queryClient: () => ({}),
         },
-        useUtils: () => ({}),
-    },
-}));
+    });
+});
 
 const { ProgramsManager } =
     await import('~/app/(app)/profile/_components/lifting/ProgramsManager');

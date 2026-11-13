@@ -1,6 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { NotebookPen, PencilLine } from 'lucide-react';
 import { useId, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
@@ -32,7 +33,7 @@ import {
     isDecisionFollowed,
 } from '~/lib/prop-accounts/metrics';
 import { type AdviceSource } from '~/lib/prop-calculator/advisor';
-import { api, type RouterOutputs } from '~/trpc/react';
+import { type RouterOutputs, useTRPC } from '~/trpc/react';
 
 enum DecisionColumn {
     Accepted = 'accepted',
@@ -86,28 +87,37 @@ export function DecisionLog({
     readonly stepCents: number;
     readonly suggestion: DecisionSuggestion | null;
 }) {
-    const utilities = api.useUtils();
-    const create = api.propAccounts.decision.create.useMutation({
-        onError: (error) => {
-            toast.error(errorMessage(error));
-        },
-        onSuccess: () => {
-            toast.success('Suggestion accepted');
-            return utilities.propAccounts.decision.invalidate();
-        },
-    });
+    const api = useTRPC();
+    const queryClient = useQueryClient();
+    const create = useMutation(
+        api.propAccounts.decision.create.mutationOptions({
+            onError: (error) => {
+                toast.error(errorMessage(error));
+            },
+            onSuccess: () => {
+                toast.success('Suggestion accepted');
+                return queryClient.invalidateQueries(
+                    api.propAccounts.decision.pathFilter(),
+                );
+            },
+        }),
+    );
 
     const [recording, setRecording] = useState<DecisionRow | null>(null);
-    const recordActual = api.propAccounts.decision.recordActual.useMutation({
-        onError: (error) => {
-            toast.error(errorMessage(error));
-        },
-        onSuccess: () => {
-            toast.success('Actual risk recorded');
-            setRecording(null);
-            return utilities.propAccounts.decision.invalidate();
-        },
-    });
+    const recordActual = useMutation(
+        api.propAccounts.decision.recordActual.mutationOptions({
+            onError: (error) => {
+                toast.error(errorMessage(error));
+            },
+            onSuccess: () => {
+                toast.success('Actual risk recorded');
+                setRecording(null);
+                return queryClient.invalidateQueries(
+                    api.propAccounts.decision.pathFilter(),
+                );
+            },
+        }),
+    );
 
     const adherence = decisionAdherenceOf(decisions, stepCents);
     const isAlreadyAccepted =

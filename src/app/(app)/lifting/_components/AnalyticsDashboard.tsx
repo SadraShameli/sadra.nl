@@ -1,5 +1,6 @@
 'use client';
 
+import { useQuery } from '@tanstack/react-query';
 import { eachDayOfInterval, getDay, subMonths } from 'date-fns';
 import { CalendarRange, Dumbbell } from 'lucide-react';
 import { type ReactNode, useMemo } from 'react';
@@ -26,21 +27,28 @@ import {
     type WeekStart,
 } from '~/lib/lifting/types';
 import { cn } from '~/lib/utilities';
-import { api, type RouterOutputs } from '~/trpc/react';
+import { type RouterOutputs, useTRPC } from '~/trpc/react';
 
 export function AnalyticsDashboard() {
+    const api = useTRPC();
     const range = useMemo(() => {
         const to = new Date();
         const from = subMonths(to, 3);
         return { from, to };
     }, []);
 
-    const volume = api.lifting.analytics.volumePerMuscle.useQuery(range);
-    const consistency = api.lifting.analytics.consistency.useQuery({
-        trailingWeeks: 4,
-    });
-    const heatmap = api.lifting.analytics.frequencyHeatmap.useQuery(range);
-    const settings = api.lifting.settings.get.useQuery();
+    const volume = useQuery(
+        api.lifting.analytics.volumePerMuscle.queryOptions(range),
+    );
+    const consistency = useQuery(
+        api.lifting.analytics.consistency.queryOptions({
+            trailingWeeks: 4,
+        }),
+    );
+    const heatmap = useQuery(
+        api.lifting.analytics.frequencyHeatmap.queryOptions(range),
+    );
+    const settings = useQuery(api.lifting.settings.get.queryOptions());
     const unitWeight = settings.data?.unitWeight ?? 'kg';
     const weekStart = settings.data?.weekStart ?? 'mon';
 

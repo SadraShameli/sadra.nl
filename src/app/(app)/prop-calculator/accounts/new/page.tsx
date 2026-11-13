@@ -14,7 +14,7 @@ import { requireSessionUser } from '~/lib/auth/guards';
 import { loginRedirectFor } from '~/lib/site/privateRoutes';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
-import { api, HydrateClient } from '~/trpc/server';
+import { HydrateClient, prefetch, trpc } from '~/trpc/server';
 
 export const metadata: Metadata = {
     description: 'Add a prop firm account.',
@@ -55,10 +55,12 @@ async function NewPropAccountContent({
         ),
     );
     await Promise.all([
-        api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT),
-        api.propAccounts.copyGroup.list.prefetch(),
-        api.propAccounts.externalFirm.list.prefetch(),
-        api.propAccounts.round.list.prefetch(),
+        prefetch(
+            trpc.propAccounts.account.list.queryOptions(ACCOUNT_LIST_INPUT),
+        ),
+        prefetch(trpc.propAccounts.copyGroup.list.queryOptions()),
+        prefetch(trpc.propAccounts.externalFirm.list.queryOptions()),
+        prefetch(trpc.propAccounts.round.list.queryOptions()),
     ]);
     return (
         <HydrateClient>

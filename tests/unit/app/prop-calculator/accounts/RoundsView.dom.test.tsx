@@ -76,7 +76,7 @@ const harness = vi.hoisted(() => {
         create,
         queries,
         query: (name: string) => ({
-            useQuery: () => queries.get(name) ?? pending,
+            query: () => queries.get(name) ?? pending,
         }),
         reset() {
             queries.clear();
@@ -109,38 +109,41 @@ vi.mock('~/lib/auth/client', () => ({
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        propAccounts: {
-            account: { list: harness.query('account.list') },
-            bankroll: { summary: harness.query('bankroll.summary') },
-            edge: { summary: harness.query('edge.summary') },
-            event: { list: harness.query('event.list') },
-            externalFirm: { list: harness.query('externalFirm.list') },
-            fee: { list: harness.query('fee.list') },
-            payout: { list: harness.query('payout.list') },
-            round: {
-                assign: {
-                    useMutation: () => ({
-                        isPending: false,
-                        mutateAsync: harness.assign,
-                    }),
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        procedures: {
+            propAccounts: {
+                account: { list: harness.query('account.list') },
+                bankroll: { summary: harness.query('bankroll.summary') },
+                edge: { summary: harness.query('edge.summary') },
+                event: { list: harness.query('event.list') },
+                externalFirm: { list: harness.query('externalFirm.list') },
+                fee: { list: harness.query('fee.list') },
+                payout: { list: harness.query('payout.list') },
+                round: {
+                    assign: {
+                        mutation: () => ({
+                            isPending: false,
+                            mutateAsync: harness.assign,
+                        }),
+                    },
+                    create: {
+                        mutation: () => ({
+                            isPending: false,
+                            mutateAsync: harness.create,
+                        }),
+                    },
+                    list: harness.query('round.list'),
                 },
-                create: {
-                    useMutation: () => ({
-                        isPending: false,
-                        mutateAsync: harness.create,
-                    }),
-                },
-                list: harness.query('round.list'),
+                rulebook: { get: harness.query('rulebook.get') },
             },
-            rulebook: { get: harness.query('rulebook.get') },
+            queryClient: () => ({
+                propAccounts: { invalidate: () => Promise.resolve() },
+            }),
         },
-        useUtils: () => ({
-            propAccounts: { invalidate: () => Promise.resolve() },
-        }),
-    },
-}));
+    });
+});
 
 vi.mock(
     '~/app/(app)/prop-calculator/_components/useToolsWorker',

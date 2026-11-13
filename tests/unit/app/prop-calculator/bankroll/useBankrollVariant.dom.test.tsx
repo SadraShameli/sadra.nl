@@ -43,26 +43,29 @@ vi.mock('~/lib/auth/client', () => ({
     }),
 }));
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        propAccounts: {
-            rulebook: {
-                get: {
-                    useQuery: (
-                        _input: unknown,
-                        options: Record<string, unknown>,
-                    ) => {
-                        harness.options = options;
-                        return {
-                            data: harness.data ?? undefined,
-                            isError: harness.isError,
-                        };
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        procedures: {
+            propAccounts: {
+                rulebook: {
+                    get: {
+                        query: (
+                            _input: unknown,
+                            options: Record<string, unknown>,
+                        ) => {
+                            harness.options = options;
+                            return {
+                                data: harness.data ?? undefined,
+                                isError: harness.isError,
+                            };
+                        },
                     },
                 },
             },
         },
-    },
-}));
+    });
+});
 
 describe('useBankrollVariant names the rulebook source (PT-63d, F-V24)', () => {
     let container: HTMLDivElement;

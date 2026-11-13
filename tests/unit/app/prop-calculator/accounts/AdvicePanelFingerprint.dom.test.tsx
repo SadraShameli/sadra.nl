@@ -50,14 +50,14 @@ const harness = vi.hoisted(() => {
     };
     return {
         mutation: () => ({
-            useMutation: () => ({ isPending: false, mutate: vi.fn() }),
+            mutation: () => ({ isPending: false, mutate: vi.fn() }),
         }),
         payoutQuery: () => ({
-            useQuery: () => queries.get('payout.list') ?? pending,
+            query: () => queries.get('payout.list') ?? pending,
         }),
         queries,
         query: (name: string) => ({
-            useQuery: () => queries.get(name) ?? pending,
+            query: () => queries.get(name) ?? pending,
         }),
     };
 });
@@ -80,43 +80,46 @@ vi.mock('next/navigation', () => ({
     useSearchParams: () => new URLSearchParams(),
 }));
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        propAccounts: {
-            account: {
-                get: harness.query('account.get'),
-                list: harness.query('account.list'),
-            },
-            decision: {
-                create: harness.mutation(),
-                listForAccount: harness.query('decision.listForAccount'),
-                recordActual: harness.mutation(),
-            },
-            dpAdvice: {
-                listForAccount: harness.query('dpAdvice.listForAccount'),
-            },
-            event: {
-                list: harness.query('event.list'),
-                listForAccount: harness.query('event.listForAccount'),
-            },
-            payout: { list: harness.payoutQuery() },
-            rulebook: { get: harness.query('rulebook.get') },
-            snapshot: {
-                listForAccount: harness.query('snapshot.listForAccount'),
-            },
-            violation: {
-                create: harness.mutation(),
-                list: harness.query('violation.list'),
-            },
-        },
-        useUtils: () => ({
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        procedures: {
             propAccounts: {
-                decision: { invalidate: vi.fn() },
-                invalidate: vi.fn(),
+                account: {
+                    get: harness.query('account.get'),
+                    list: harness.query('account.list'),
+                },
+                decision: {
+                    create: harness.mutation(),
+                    listForAccount: harness.query('decision.listForAccount'),
+                    recordActual: harness.mutation(),
+                },
+                dpAdvice: {
+                    listForAccount: harness.query('dpAdvice.listForAccount'),
+                },
+                event: {
+                    list: harness.query('event.list'),
+                    listForAccount: harness.query('event.listForAccount'),
+                },
+                payout: { list: harness.payoutQuery() },
+                rulebook: { get: harness.query('rulebook.get') },
+                snapshot: {
+                    listForAccount: harness.query('snapshot.listForAccount'),
+                },
+                violation: {
+                    create: harness.mutation(),
+                    list: harness.query('violation.list'),
+                },
             },
-        }),
-    },
-}));
+            queryClient: () => ({
+                propAccounts: {
+                    decision: { invalidate: vi.fn() },
+                    invalidate: vi.fn(),
+                },
+            }),
+        },
+    });
+});
 
 vi.mock(
     '~/app/(app)/prop-calculator/accounts/_components/advice/useAccountAdvice',

@@ -459,8 +459,6 @@ interface FundedWorkerInit {
     readonly workerIndex: number;
 }
 
-type FundedWorkerMessage = FundedWorkerConfigure | FundedWorkerDispatch;
-
 interface FundedWorkerSolver {
     readonly context: FundedSolveContext;
     readonly solve: (
@@ -2267,6 +2265,7 @@ function riskAtExactCushion(
 }
 
 function runFundedWorkerBootstrap(): void {
+    type FundedWorkerMessage = FundedWorkerConfigure | FundedWorkerDispatch;
     const init = workerData as FundedWorkerInit;
     const flags = new Int32Array(init.flagsSAB);
     const heartbeats = new Int32Array(init.heartbeatsSAB);

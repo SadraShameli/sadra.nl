@@ -38,16 +38,18 @@ const harness = vi.hoisted(() => ({
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
-vi.mock('~/trpc/react', () => {
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../stubs/trpcDouble');
     const { goal, recorder } = harness;
-    return {
-        api: {
+
+    return trpcDoubleReact({
+        procedures: {
             lifting: {
                 goal: {
-                    create: { useMutation: recorder([]) },
-                    delete: { useMutation: recorder(harness.deleted) },
+                    create: { mutation: recorder([]) },
+                    delete: { mutation: recorder(harness.deleted) },
                     list: {
-                        useQuery: () => ({
+                        query: () => ({
                             data: [
                                 goal('goal-active', 'active', 80),
                                 goal('goal-paused', 'paused', 78),
@@ -56,16 +58,22 @@ vi.mock('~/trpc/react', () => {
                             isLoading: false,
                         }),
                     },
-                    markAchieved: { useMutation: recorder(harness.achieved) },
-                    update: { useMutation: recorder(harness.updated) },
+                    markAchieved: {
+                        mutation: recorder(harness.achieved),
+                    },
+                    update: { mutation: recorder(harness.updated) },
                 },
                 settings: {
-                    get: { useQuery: () => ({ data: { unitWeight: 'kg' } }) },
+                    get: {
+                        query: () => ({
+                            data: { unitWeight: 'kg' },
+                        }),
+                    },
                 },
             },
-            useUtils: () => ({}),
+            queryClient: () => ({}),
         },
-    };
+    });
 });
 
 const { GoalsView } = await import('~/app/(app)/lifting/_components/GoalsView');

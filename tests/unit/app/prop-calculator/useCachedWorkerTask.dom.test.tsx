@@ -67,8 +67,6 @@ vi.mock('~/app/(app)/prop-calculator/_components/useWorkerTask', async () => {
     };
 });
 
-type Task = CachedWorkerTask<never, PayoutSweepResult>;
-
 const DEBOUNCE_MS = 100;
 
 function createWorker(): Worker {
@@ -105,6 +103,7 @@ function result(label: string): PayoutSweepResult {
 }
 
 describe('useCachedWorkerTask', () => {
+    type Task = CachedWorkerTask<never, PayoutSweepResult>;
     let root: Root;
     let container: HTMLElement;
     let cache: ComputationCache;

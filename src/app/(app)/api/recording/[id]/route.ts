@@ -10,7 +10,7 @@ import {
     zodErrorResponse,
 } from '~/lib/schemas/api';
 import { markIotRecordingsStale } from '~/server/iot/IotPublicReads';
-import { api } from '~/trpc/server';
+import { caller } from '~/trpc/server';
 
 export async function GET(
     request: NextRequest,
@@ -19,7 +19,7 @@ export async function GET(
     const parsed = parseRouteParameters(idPathParameterSchema, await params);
     if (parsed.response) return parsed.response;
 
-    const result = await api.recording.getRecording({ id: parsed.data.id });
+    const result = await caller.recording.getRecording({ id: parsed.data.id });
 
     if (!result.data) {
         return NextResponse.json(result, { status: result.status });
@@ -67,7 +67,7 @@ export async function POST(
 
     try {
         const blob = recordingBlobSchema.parse(await request.blob());
-        const result = await api.recording.createRecording({
+        const result = await caller.recording.createRecording({
             device: { device_id: parsed.data.id },
             recording: Buffer.from(await blob.arrayBuffer()),
         });

@@ -53,7 +53,7 @@ const harness = vi.hoisted(() => {
         invalidate,
         mutateAsync,
         mutation: () => ({
-            useMutation: () => ({
+            mutation: () => ({
                 isPending: false,
                 mutate: vi.fn(),
                 mutateAsync,
@@ -61,7 +61,7 @@ const harness = vi.hoisted(() => {
         }),
         queries,
         query: (name: string) => ({
-            useQuery: () => queries.get(name) ?? pending,
+            query: () => queries.get(name) ?? pending,
         }),
     };
 });
@@ -74,22 +74,25 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        propAccounts: {
-            account: {
-                get: harness.query('account.get'),
-                list: harness.query('account.list'),
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        procedures: {
+            propAccounts: {
+                account: {
+                    get: harness.query('account.get'),
+                    list: harness.query('account.list'),
+                },
+                event: { record: harness.mutation() },
+                externalFirm: { list: harness.query('externalFirm.list') },
+                firmEngagement: { set: harness.mutation() },
             },
-            event: { record: harness.mutation() },
-            externalFirm: { list: harness.query('externalFirm.list') },
-            firmEngagement: { set: harness.mutation() },
+            queryClient: () => ({
+                propAccounts: { invalidate: harness.invalidate },
+            }),
         },
-        useUtils: () => ({
-            propAccounts: { invalidate: harness.invalidate },
-        }),
-    },
-}));
+    });
+});
 
 const FIRM = required(ALL_FIRMS[0], 'a registered firm');
 const PLAN = required(

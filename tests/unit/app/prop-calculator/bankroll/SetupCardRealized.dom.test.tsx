@@ -20,7 +20,7 @@ import { statStripValue } from '../statStripValue';
 
 interface Harness {
     list: (key: ListKey) => {
-        list: { useQuery: (input: unknown) => QueryResult };
+        list: { query: (input: unknown) => QueryResult };
     };
     queries: Record<ListKey, QueryResult>;
     spies: Record<ListKey, (input: unknown) => void>;
@@ -45,7 +45,7 @@ const harness = vi.hoisted((): Harness => {
     const state: Harness = {
         list: (key) => ({
             list: {
-                useQuery: (input) => {
+                query: (input) => {
                     state.spies[key](input);
                     return state.queries[key];
                 },
@@ -80,18 +80,25 @@ vi.mock('~/lib/auth/client', () => ({
     }),
 }));
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        propAccounts: {
-            account: harness.list('account'),
-            bankroll: { summary: { useQuery: () => ({ data: undefined }) } },
-            event: harness.list('event'),
-            fee: harness.list('fee'),
-            payout: harness.list('payout'),
-            rulebook: { get: { useQuery: () => ({ data: undefined }) } },
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        procedures: {
+            propAccounts: {
+                account: harness.list('account'),
+                bankroll: {
+                    summary: { query: () => ({ data: undefined }) },
+                },
+                event: harness.list('event'),
+                fee: harness.list('fee'),
+                payout: harness.list('payout'),
+                rulebook: {
+                    get: { query: () => ({ data: undefined }) },
+                },
+            },
         },
-    },
-}));
+    });
+});
 
 vi.mock('~/app/(app)/prop-calculator/_components/CalculatorProvider', () => ({
     useBaseResult: () => ({

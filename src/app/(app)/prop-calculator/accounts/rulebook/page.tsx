@@ -9,7 +9,7 @@ import { loginRedirectFor } from '~/lib/site/privateRoutes';
 import { routes } from '~/lib/site/routes';
 import { loadActiveTradingPlan } from '~/lib/trading/loadActiveTradingPlan';
 import { cn } from '~/lib/utilities';
-import { api, HydrateClient } from '~/trpc/server';
+import { HydrateClient, prefetch, trpc } from '~/trpc/server';
 
 import { tradingPlanSourceFrom } from './rulebookFromTradingPlan';
 import { RulebookView } from './RulebookView';
@@ -45,7 +45,7 @@ async function PropRulebookContent() {
     const user = await requireSessionUser(
         loginRedirectFor(routes.propCalculator.accounts.rulebook),
     );
-    await api.propAccounts.rulebook.get.prefetch();
+    await prefetch(trpc.propAccounts.rulebook.get.queryOptions());
     const tradingPlan = tradingPlanSourceFrom(
         await loadActiveTradingPlan(user.id),
     );

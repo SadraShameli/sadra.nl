@@ -33,18 +33,14 @@ class WiseApiSource extends ApiSourceBase {
             sandbox: isSandbox,
         });
 
-        const [transfers, cards] = await Promise.all([
-            client.listTransfers({
-                from: context.from,
-                profileId,
-                to: context.to,
-            }),
-            client.listCardTransactions({
-                from: context.from,
-                profileId,
-                to: context.to,
-            }),
+        const isIncludeIncoming = context.meta.includeIncoming === true;
+        const range = { from: context.from, profileId, to: context.to };
+        const [transfers, activities] = await Promise.all([
+            client.listTransfers(range),
+            client.listActivityTransactions(range),
         ]);
+        const { cards } = activities;
+        const incoming = isIncludeIncoming ? activities.incoming : [];
 
         const uniqueAccountIds = [
             ...new Set(transfers.map((t) => t.targetAccountId)),
@@ -94,7 +90,19 @@ class WiseApiSource extends ApiSourceBase {
             };
         });
 
-        return [...transferTxns, ...cardTxns];
+        const incomingTxns: RawTransaction[] = incoming.map((t) => ({
+            date: isoDateSchema.parse(t.created.slice(0, 10)),
+            direction: 'IN',
+            merchant: t.payer,
+            sourceAmount: t.amount,
+            sourceCurrency: currencyCodeSchema.parse(t.currency),
+            sourceFee: 0,
+            sourceFeeCurrency: null,
+            sourceId: 'wise-api',
+            txnId: `wise-in-${t.id}`,
+        }));
+
+        return [...transferTxns, ...cardTxns, ...incomingTxns];
     }
 }
 

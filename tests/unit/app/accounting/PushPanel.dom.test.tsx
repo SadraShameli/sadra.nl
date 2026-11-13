@@ -11,13 +11,16 @@ import { LedgerId, RunId } from '~/lib/accounting/core/ids';
 
 const stream = vi.hoisted(() => ({ running: false }));
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        accounting: {
-            runs: { get: { useQuery: () => ({ data: undefined }) } },
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        procedures: {
+            accounting: {
+                runs: { get: { query: () => ({ data: undefined }) } },
+            },
         },
-    },
-}));
+    });
+});
 
 vi.mock('~/app/(app)/accounting/_components/useImportStream', () => ({
     useImportStream: () => ({

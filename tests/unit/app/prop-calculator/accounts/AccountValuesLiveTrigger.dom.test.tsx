@@ -58,11 +58,11 @@ const harness = vi.hoisted(() => {
     };
     return {
         mutation: () => ({
-            useMutation: () => ({ isPending: false, mutate: vi.fn() }),
+            mutation: () => ({ isPending: false, mutate: vi.fn() }),
         }),
         queries,
         query: (name: string) => ({
-            useQuery: () => queries.get(name) ?? pending,
+            query: () => queries.get(name) ?? pending,
         }),
     };
 });
@@ -110,37 +110,43 @@ vi.mock(
     },
 );
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        propAccounts: {
-            account: {
-                archive: harness.mutation(),
-                list: harness.query('account.list'),
-                remove: harness.mutation(),
-                unarchive: harness.mutation(),
-            },
-            bankroll: { list: harness.query('bankroll.list') },
-            copyGroup: { list: harness.query('copyGroup.list') },
-            decision: { list: harness.query('decision.list') },
-            event: { list: harness.query('event.list') },
-            externalFirm: { list: harness.query('externalFirm.list') },
-            fee: { list: harness.query('fee.list') },
-            payout: { list: harness.query('payout.list') },
-            rulebook: { get: harness.query('rulebook.get') },
-            snapshot: {
-                latestForAll: harness.query('snapshot.latestForAll'),
-                latestTwoForAll: harness.query('snapshot.latestForAll'),
-            },
-            violation: { list: harness.query('violation.list') },
-        },
-        useUtils: () => ({
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        procedures: {
             propAccounts: {
-                account: { get: { cancel: vi.fn() }, invalidate: vi.fn() },
-                invalidate: vi.fn(),
+                account: {
+                    archive: harness.mutation(),
+                    list: harness.query('account.list'),
+                    remove: harness.mutation(),
+                    unarchive: harness.mutation(),
+                },
+                bankroll: { list: harness.query('bankroll.list') },
+                copyGroup: { list: harness.query('copyGroup.list') },
+                decision: { list: harness.query('decision.list') },
+                event: { list: harness.query('event.list') },
+                externalFirm: { list: harness.query('externalFirm.list') },
+                fee: { list: harness.query('fee.list') },
+                payout: { list: harness.query('payout.list') },
+                rulebook: { get: harness.query('rulebook.get') },
+                snapshot: {
+                    latestForAll: harness.query('snapshot.latestForAll'),
+                    latestTwoForAll: harness.query('snapshot.latestForAll'),
+                },
+                violation: { list: harness.query('violation.list') },
             },
-        }),
-    },
-}));
+            queryClient: () => ({
+                propAccounts: {
+                    account: {
+                        get: { cancel: vi.fn() },
+                        invalidate: vi.fn(),
+                    },
+                    invalidate: vi.fn(),
+                },
+            }),
+        },
+    });
+});
 
 const CONFIRMED_SOURCE = {
     fetchedOn: '2026-09-01',

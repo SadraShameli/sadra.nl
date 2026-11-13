@@ -70,11 +70,11 @@ const harness = vi.hoisted(() => {
         mutateOf,
         mutates,
         mutation: (name: string) => ({
-            useMutation: () => ({ isPending: false, mutate: mutateOf(name) }),
+            mutation: () => ({ isPending: false, mutate: mutateOf(name) }),
         }),
         queries,
         query: (name: string) => ({
-            useQuery: () => queries.get(name) ?? pending,
+            query: () => queries.get(name) ?? pending,
         }),
         values: emptyValues,
     };
@@ -94,29 +94,35 @@ vi.mock(
     }),
 );
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        propAccounts: {
-            account: {
-                archive: harness.mutation('account.archive'),
-                list: harness.query('account.list'),
-                remove: harness.mutation('account.remove'),
-                unarchive: harness.mutation('account.unarchive'),
-            },
-            copyGroup: { list: harness.query('copyGroup.list') },
-            externalFirm: { list: harness.query('externalFirm.list') },
-            snapshot: {
-                latestTwoForAll: harness.query('snapshot.latestTwoForAll'),
-            },
-        },
-        useUtils: () => ({
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        procedures: {
             propAccounts: {
-                account: { get: { cancel: vi.fn() }, invalidate: vi.fn() },
-                invalidate: vi.fn(),
+                account: {
+                    archive: harness.mutation('account.archive'),
+                    list: harness.query('account.list'),
+                    remove: harness.mutation('account.remove'),
+                    unarchive: harness.mutation('account.unarchive'),
+                },
+                copyGroup: { list: harness.query('copyGroup.list') },
+                externalFirm: { list: harness.query('externalFirm.list') },
+                snapshot: {
+                    latestTwoForAll: harness.query('snapshot.latestTwoForAll'),
+                },
             },
-        }),
-    },
-}));
+            queryClient: () => ({
+                propAccounts: {
+                    account: {
+                        get: { cancel: vi.fn() },
+                        invalidate: vi.fn(),
+                    },
+                    invalidate: vi.fn(),
+                },
+            }),
+        },
+    });
+});
 
 const PLAN = ALL_FIRMS.flatMap((firm) => firm.plans)[0];
 

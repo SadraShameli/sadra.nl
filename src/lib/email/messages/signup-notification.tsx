@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react';
 
-import { Heading, Text } from '@react-email/components';
+import { Heading, Text } from 'react-email';
 
 import { EmailMessage } from '~/lib/email/message';
 import { BaseEmail } from '~/lib/email/templates/base';

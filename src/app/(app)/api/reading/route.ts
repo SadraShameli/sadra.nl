@@ -8,20 +8,20 @@ import {
 } from '~/lib/schemas/api';
 import { readingCreateProperties } from '~/lib/schemas/sensor';
 import { markIotReadingsStale } from '~/server/iot/IotPublicReads';
-import { api } from '~/trpc/server';
+import { caller } from '~/trpc/server';
 
 export async function GET(request: NextRequest) {
     const page = parseSearchParameters(readingsPageQuerySchema, request);
     if (page.response) return page.response;
 
-    const result = await api.reading.getReadings(page.data);
+    const result = await caller.reading.getReadings(page.data);
     return NextResponse.json(result.data);
 }
 
 export async function POST(request: NextRequest) {
     try {
         const body = readingCreateProperties.parse(await request.json());
-        const result = await api.reading.createReading(body);
+        const result = await caller.reading.createReading(body);
 
         const status =
             'status' in result && typeof result.status === 'number'

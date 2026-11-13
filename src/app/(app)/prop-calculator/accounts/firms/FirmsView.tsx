@@ -1,6 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Building2, Pencil } from 'lucide-react';
 import { useId, useMemo, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
@@ -78,7 +79,7 @@ import {
 import { type SampledEstimate } from '~/lib/prop-accounts/metrics';
 import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
 import { firmEngagementSetSchema } from '~/lib/schemas/propAccounts';
-import { api } from '~/trpc/react';
+import { useTRPC } from '~/trpc/react';
 
 import { firmsModelOf } from './firmsModel';
 
@@ -122,20 +123,33 @@ const firmStatusFormShape = z.object({
     status: z.enum(FirmEngagementStatus),
 });
 
-type FirmStatusFormValues = z.infer<typeof firmStatusFormShape>;
-
 export function FirmsView() {
+    const api = useTRPC();
     const session = useSession();
-    const accountsQuery =
-        api.propAccounts.account.list.useQuery(ACCOUNT_LIST_INPUT);
-    const eventsQuery = api.propAccounts.event.list.useQuery(EVENT_LIST_INPUT);
-    const feesQuery = api.propAccounts.fee.list.useQuery(LEDGER_LIST_INPUT);
-    const payoutsQuery =
-        api.propAccounts.payout.list.useQuery(LEDGER_LIST_INPUT);
-    const externalFirmsQuery = api.propAccounts.externalFirm.list.useQuery();
-    const engagementsQuery = api.propAccounts.firmEngagement.list.useQuery();
-    const rulebookQuery = api.propAccounts.rulebook.get.useQuery();
-    const edgeQuery = api.propAccounts.edge.summary.useQuery(ALL_JOURNAL_DAYS);
+    const accountsQuery = useQuery(
+        api.propAccounts.account.list.queryOptions(ACCOUNT_LIST_INPUT),
+    );
+    const eventsQuery = useQuery(
+        api.propAccounts.event.list.queryOptions(EVENT_LIST_INPUT),
+    );
+    const feesQuery = useQuery(
+        api.propAccounts.fee.list.queryOptions(LEDGER_LIST_INPUT),
+    );
+    const payoutsQuery = useQuery(
+        api.propAccounts.payout.list.queryOptions(LEDGER_LIST_INPUT),
+    );
+    const externalFirmsQuery = useQuery(
+        api.propAccounts.externalFirm.list.queryOptions(),
+    );
+    const engagementsQuery = useQuery(
+        api.propAccounts.firmEngagement.list.queryOptions(),
+    );
+    const rulebookQuery = useQuery(
+        api.propAccounts.rulebook.get.queryOptions(),
+    );
+    const edgeQuery = useQuery(
+        api.propAccounts.edge.summary.queryOptions(ALL_JOURNAL_DAYS),
+    );
 
     const externalFirms = externalFirmsQuery.data ?? EMPTY_EXTERNAL_FIRMS;
     const engagements = engagementsQuery.data ?? EMPTY_ENGAGEMENTS;
@@ -403,8 +417,12 @@ function FirmStatusForm({
     readonly firmLabel: string;
     readonly onClose: () => void;
 }) {
-    const utilities = api.useUtils();
-    const set = api.propAccounts.firmEngagement.set.useMutation();
+    type FirmStatusFormValues = z.infer<typeof firmStatusFormShape>;
+    const api = useTRPC();
+    const queryClient = useQueryClient();
+    const set = useMutation(
+        api.propAccounts.firmEngagement.set.mutationOptions(),
+    );
     const schema = firmStatusSchema(
         entry.firmKey,
         existingEngagement?.note ?? null,
@@ -440,7 +458,7 @@ function FirmStatusForm({
                 error instanceof Error ? error.message : 'Could not save',
             );
         } finally {
-            await utilities.propAccounts.invalidate();
+            await queryClient.invalidateQueries(api.propAccounts.pathFilter());
         }
     };
 

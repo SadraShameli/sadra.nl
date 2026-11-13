@@ -1,5 +1,6 @@
 'use client';
 
+import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useMemo } from 'react';
 
@@ -16,7 +17,7 @@ import { Skeleton } from '~/components/ui/skeleton';
 import { PortfolioLedger } from '~/lib/prop-accounts';
 import { ALL_JOURNAL_DAYS } from '~/lib/prop-accounts/edge';
 import { routes } from '~/lib/site/routes';
-import { api } from '~/trpc/react';
+import { useTRPC } from '~/trpc/react';
 
 import {
     firmsTileModelOf,
@@ -32,8 +33,13 @@ export function FirmsTile({
     readonly load: PortfolioLoad;
     readonly userId: string;
 }) {
-    const engagementsQuery = api.propAccounts.firmEngagement.list.useQuery();
-    const edgeQuery = api.propAccounts.edge.summary.useQuery(ALL_JOURNAL_DAYS);
+    const api = useTRPC();
+    const engagementsQuery = useQuery(
+        api.propAccounts.firmEngagement.list.queryOptions(),
+    );
+    const edgeQuery = useQuery(
+        api.propAccounts.edge.summary.queryOptions(ALL_JOURNAL_DAYS),
+    );
     const today = useTodayIsoDate();
     const engagements = engagementsQuery.data;
     const trades = edgeQuery.data?.summary.sampleSize ?? 0;

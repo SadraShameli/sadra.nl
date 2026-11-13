@@ -31,18 +31,21 @@ vi.mock('~/lib/auth/client', () => ({
     useSession: () => sessionMock() as SessionResult,
 }));
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        propAccounts: {
-            rulebook: {
-                get: {
-                    useQuery: (input: unknown, options: unknown) =>
-                        queryMock(input, options) as QueryResult,
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        procedures: {
+            propAccounts: {
+                rulebook: {
+                    get: {
+                        query: (input: unknown, options: unknown) =>
+                            queryMock(input, options) as QueryResult,
+                    },
                 },
             },
         },
-    },
-}));
+    });
+});
 
 const PERSONAL: RulebookParameters = {
     ...DEFAULT_RULEBOOK,

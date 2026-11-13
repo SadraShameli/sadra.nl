@@ -9,6 +9,7 @@ import {
 
 const metaSchema = z
     .object({
+        includeIncoming: z.boolean().optional(),
         profileId: z.coerce.number().int().positive(),
         sandbox: z.boolean().optional(),
     })
@@ -18,6 +19,14 @@ CredentialRegistry.instance.register({
     id: CredentialKind.Wise,
     label: 'Wise',
     metaFields: [
+        {
+            defaultValue: false,
+            description:
+                'Also import incoming transfers (payouts). Leave off where a payout CSV, such as Plane or Rise, already covers the same money, or it is booked twice.',
+            key: 'includeIncoming',
+            label: 'Import incoming transfers',
+            type: MetaFieldType.Boolean,
+        },
         {
             defaultValue: false,
             key: 'sandbox',

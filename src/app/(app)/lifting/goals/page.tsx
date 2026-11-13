@@ -7,7 +7,7 @@ import { GoalsViewSkeleton } from '~/app/(app)/lifting/_components/LiftingSkelet
 import { PageTransition } from '~/components/PageTransition';
 import { requireSessionUser } from '~/lib/auth/guards';
 import { cn } from '~/lib/utilities';
-import { api, HydrateClient } from '~/trpc/server';
+import { HydrateClient, prefetch, trpc } from '~/trpc/server';
 
 export const metadata: Metadata = {
     description: 'Set and track lifting goals.',
@@ -37,7 +37,7 @@ export default function LiftingGoalsPage() {
 
 async function LiftingGoalsContent() {
     await requireSessionUser();
-    await api.lifting.settings.get.prefetch();
+    await prefetch(trpc.lifting.settings.get.queryOptions());
     return (
         <HydrateClient>
             <GoalsView />

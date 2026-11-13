@@ -15,14 +15,15 @@ const harness = vi.hoisted(() => ({
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
-vi.mock('~/trpc/react', () => {
-    return {
-        api: {
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        procedures: {
             lifting: {
                 measurement: {
-                    create: { useMutation: harness.mutation },
+                    create: { mutation: harness.mutation },
                     delete: {
-                        useMutation: () => ({
+                        mutation: () => ({
                             isPending: false,
                             mutate: (input: unknown) => {
                                 harness.deleted.push(input);
@@ -30,7 +31,7 @@ vi.mock('~/trpc/react', () => {
                         }),
                     },
                     list: {
-                        useQuery: () => ({
+                        query: () => ({
                             data: harness.rows,
                             isLoading: false,
                         }),
@@ -38,17 +39,22 @@ vi.mock('~/trpc/react', () => {
                 },
                 settings: {
                     get: {
-                        useQuery: () => ({
-                            data: { unitLength: 'cm', unitWeight: 'kg' },
+                        query: () => ({
+                            data: {
+                                unitLength: 'cm',
+                                unitWeight: 'kg',
+                            },
                         }),
                     },
                 },
             },
-            useUtils: () => ({
-                lifting: { measurement: { list: { invalidate: vi.fn() } } },
+            queryClient: () => ({
+                lifting: {
+                    measurement: { list: { invalidate: vi.fn() } },
+                },
             }),
         },
-    };
+    });
 });
 
 const { BodyView } = await import('~/app/(app)/lifting/_components/BodyView');

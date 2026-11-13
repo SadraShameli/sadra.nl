@@ -1,5 +1,6 @@
 'use client';
 
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ChevronDown, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -20,7 +21,7 @@ import {
     type UnitWeight,
 } from '~/lib/lifting/types';
 import { cn } from '~/lib/utilities';
-import { api, type RouterOutputs } from '~/trpc/react';
+import { type RouterOutputs, useTRPC } from '~/trpc/react';
 
 import { SetRow, type SetRowData } from './SetRow';
 
@@ -49,25 +50,39 @@ export function ExerciseCard({
     unitWeight,
     workoutExercise: wex,
 }: ExerciseCardProperties) {
+    const api = useTRPC();
     const [platesOpen, setPlatesOpen] = useState(false);
-    const utilities = api.useUtils();
-    const invalidate = () => utilities.lifting.workout.getActive.invalidate();
+    const queryClient = useQueryClient();
+    const invalidate = () =>
+        queryClient.invalidateQueries(
+            api.lifting.workout.getActive.pathFilter(),
+        );
 
-    const workoutSetCreation = api.lifting.set.create.useMutation({
-        onSuccess: invalidate,
-    });
-    const updateSet = api.lifting.set.update.useMutation({
-        onSuccess: invalidate,
-    });
-    const completeSet = api.lifting.set.complete.useMutation({
-        onSuccess: invalidate,
-    });
-    const workoutSetDeletion = api.lifting.set.delete.useMutation({
-        onSuccess: invalidate,
-    });
-    const exerciseRemoval = api.lifting.workout.removeExercise.useMutation({
-        onSuccess: invalidate,
-    });
+    const workoutSetCreation = useMutation(
+        api.lifting.set.create.mutationOptions({
+            onSuccess: invalidate,
+        }),
+    );
+    const updateSet = useMutation(
+        api.lifting.set.update.mutationOptions({
+            onSuccess: invalidate,
+        }),
+    );
+    const completeSet = useMutation(
+        api.lifting.set.complete.mutationOptions({
+            onSuccess: invalidate,
+        }),
+    );
+    const workoutSetDeletion = useMutation(
+        api.lifting.set.delete.mutationOptions({
+            onSuccess: invalidate,
+        }),
+    );
+    const exerciseRemoval = useMutation(
+        api.lifting.workout.removeExercise.mutationOptions({
+            onSuccess: invalidate,
+        }),
+    );
 
     const lastSet = wex.sets.findLast((s) => s.completedAt !== null);
     const targetRestSeconds =

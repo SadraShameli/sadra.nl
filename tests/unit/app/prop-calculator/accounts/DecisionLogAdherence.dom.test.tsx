@@ -18,26 +18,29 @@ vi.mock('sonner', () => ({
 const mutate = vi.hoisted(() => vi.fn());
 const recordActual = vi.hoisted(() => vi.fn());
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        propAccounts: {
-            decision: {
-                create: {
-                    useMutation: () => ({ isPending: false, mutate }),
-                },
-                recordActual: {
-                    useMutation: () => ({
-                        isPending: false,
-                        mutate: recordActual,
-                    }),
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        procedures: {
+            propAccounts: {
+                decision: {
+                    create: {
+                        mutation: () => ({ isPending: false, mutate }),
+                    },
+                    recordActual: {
+                        mutation: () => ({
+                            isPending: false,
+                            mutate: recordActual,
+                        }),
+                    },
                 },
             },
+            queryClient: () => ({
+                propAccounts: { decision: { invalidate: vi.fn() } },
+            }),
         },
-        useUtils: () => ({
-            propAccounts: { decision: { invalidate: vi.fn() } },
-        }),
-    },
-}));
+    });
+});
 
 const { DecisionLog } =
     await import('~/app/(app)/prop-calculator/accounts/_components/advice/DecisionLog');

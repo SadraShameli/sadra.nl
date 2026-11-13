@@ -37,20 +37,23 @@ vi.mock('~/lib/auth/client', () => ({
     }),
 }));
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        propAccounts: {
-            rulebook: {
-                get: {
-                    useQuery: () => ({
-                        data: harness.data,
-                        isError: harness.isError,
-                    }),
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        procedures: {
+            propAccounts: {
+                rulebook: {
+                    get: {
+                        query: () => ({
+                            data: harness.data,
+                            isError: harness.isError,
+                        }),
+                    },
                 },
             },
         },
-    },
-}));
+    });
+});
 
 vi.mock('~/app/(app)/prop-calculator/_components/CalculatorProvider', () => ({
     useCalculatorInputs: () => ({

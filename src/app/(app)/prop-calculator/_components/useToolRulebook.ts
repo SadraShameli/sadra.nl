@@ -1,11 +1,13 @@
 'use client';
 
+import { useQuery } from '@tanstack/react-query';
+
 import { useSession } from '~/lib/auth/client';
 import {
     DEFAULT_RULEBOOK,
     type RulebookParameters,
 } from '~/lib/prop-calculator/advisor';
-import { api } from '~/trpc/react';
+import { useTRPC } from '~/trpc/react';
 
 import { RulebookSource, rulebookSourceOf } from './bankroll/rulebookSource';
 
@@ -34,11 +36,14 @@ const STATUS_BY_SOURCE: Readonly<Record<RulebookSource, ToolRulebookStatus>> = {
 };
 
 export function useToolRulebook(): ToolRulebook {
+    const api = useTRPC();
     const session = useSession();
     const hasSession = session.data?.user.id !== undefined;
-    const rulebookQuery = api.propAccounts.rulebook.get.useQuery(undefined, {
-        enabled: hasSession,
-    });
+    const rulebookQuery = useQuery(
+        api.propAccounts.rulebook.get.queryOptions(undefined, {
+            enabled: hasSession,
+        }),
+    );
     const userRulebook = hasSession ? (rulebookQuery.data ?? null) : null;
     const source = rulebookSourceOf({
         hasRulebook: userRulebook !== null,

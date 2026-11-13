@@ -10,7 +10,7 @@ import {
     Section,
     Tailwind,
     Text,
-} from '@react-email/components';
+} from 'react-email';
 
 import { SITE_NAME } from '~/lib/site/siteName';
 import { getPublicSiteOrigin } from '~/lib/site/url';

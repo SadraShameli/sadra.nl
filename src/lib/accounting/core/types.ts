@@ -55,6 +55,7 @@ export interface MatchAudit {
 }
 
 export interface RawTransaction {
+    bankCurrency?: CurrencyCode;
     date: ISODate;
     direction: BookingDirection;
     isRefund?: boolean;

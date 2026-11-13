@@ -54,41 +54,46 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        propAccounts: {
-            account: {
-                archive: { useMutation: harness.mutation },
-                create: {
-                    useMutation: () => ({
-                        isPending: false,
-                        mutateAsync: harness.create,
-                    }),
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        procedures: {
+            propAccounts: {
+                account: {
+                    archive: { mutation: harness.mutation },
+                    create: {
+                        mutation: () => ({
+                            isPending: false,
+                            mutateAsync: harness.create,
+                        }),
+                    },
+                    get: {
+                        query: () => harness.query(harness.storedAccount()),
+                    },
+                    list: { query: () => harness.query([]) },
+                    remove: { mutation: harness.mutation },
+                    unarchive: { mutation: harness.mutation },
+                    update: {
+                        mutation: () => ({
+                            isPending: false,
+                            mutateAsync: harness.update,
+                        }),
+                    },
                 },
-                get: { useQuery: () => harness.query(harness.storedAccount()) },
-                list: { useQuery: () => harness.query([]) },
-                remove: { useMutation: harness.mutation },
-                unarchive: { useMutation: harness.mutation },
-                update: {
-                    useMutation: () => ({
-                        isPending: false,
-                        mutateAsync: harness.update,
-                    }),
+                copyGroup: { list: { query: () => harness.query([]) } },
+                externalFirm: {
+                    create: { mutation: harness.mutation },
+                    list: { query: () => harness.query([]) },
                 },
+                round: { list: { query: () => harness.query([]) } },
+                snapshot: { create: { mutation: harness.mutation } },
             },
-            copyGroup: { list: { useQuery: () => harness.query([]) } },
-            externalFirm: {
-                create: { useMutation: harness.mutation },
-                list: { useQuery: () => harness.query([]) },
-            },
-            round: { list: { useQuery: () => harness.query([]) } },
-            snapshot: { create: { useMutation: harness.mutation } },
+            queryClient: () => ({
+                propAccounts: { invalidate: () => Promise.resolve() },
+            }),
         },
-        useUtils: () => ({
-            propAccounts: { invalidate: () => Promise.resolve() },
-        }),
-    },
-}));
+    });
+});
 
 interface FirmPlan {
     readonly firm: TradingFirm;

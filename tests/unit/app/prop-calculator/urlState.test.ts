@@ -611,22 +611,6 @@ describe('idleDayProbability round-trip through the URL (PT-11j)', () => {
         expect(parameters.get(CalculatorUrlParameter.IdleDayProbability)).toBe(
             '0.100',
         );
-        expect(
-            parameters.has(CalculatorUrlParameter.LegacyIdleDayProbability),
-        ).toBe(false);
-    });
-
-    it('still decodes an old link that carries the legacy idp key', () => {
-        const { firm, plan } = apexEod();
-        const parameters = new URLSearchParams({
-            firm: firm.id,
-            idp: '0.300',
-            plan: `${FirmId.Apex}-${plan.id.accountSize}-${ApexVariant.Eod}`,
-        });
-
-        const state = decodeState(parameters, ALL_FIRMS, fallbackState());
-
-        expect(state.idleDayProbability).toBe(0.3);
     });
 
     it('decodes a link that carries the idle key', () => {

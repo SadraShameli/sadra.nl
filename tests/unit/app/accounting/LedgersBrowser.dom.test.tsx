@@ -31,44 +31,47 @@ vi.mock('next/link', () => ({
     ),
 }));
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        accounting: {
-            credentials: {
-                list: {
-                    useQuery: () => ({
-                        data: harness.credentials,
-                        isPending: false,
-                    }),
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        procedures: {
+            accounting: {
+                credentials: {
+                    list: {
+                        query: () => ({
+                            data: harness.credentials,
+                            isPending: false,
+                        }),
+                    },
                 },
-            },
-            ledgers: {
-                list: {
-                    useQuery: () => ({
-                        data: [
-                            {
-                                category: 'BAL',
-                                code: '1100',
-                                description: 'Wise EUR',
-                                externalId: '46557223',
-                                group: null,
-                            },
-                            {
-                                category: 'VW',
-                                code: '4500',
-                                description: 'Software',
-                                externalId: '46557224',
-                                group: null,
-                            },
-                        ],
-                        error: null,
-                        isPending: false,
-                    }),
+                ledgers: {
+                    list: {
+                        query: () => ({
+                            data: [
+                                {
+                                    category: 'BAL',
+                                    code: '1100',
+                                    description: 'Wise EUR',
+                                    externalId: '46557223',
+                                    group: null,
+                                },
+                                {
+                                    category: 'VW',
+                                    code: '4500',
+                                    description: 'Software',
+                                    externalId: '46557224',
+                                    group: null,
+                                },
+                            ],
+                            error: null,
+                            isPending: false,
+                        }),
+                    },
                 },
             },
         },
-    },
-}));
+    });
+});
 
 describe('the ledgers table', () => {
     let container: HTMLDivElement;

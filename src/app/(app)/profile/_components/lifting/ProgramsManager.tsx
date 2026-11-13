@@ -1,5 +1,6 @@
 'use client';
 
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ExternalLink, LibraryBig, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo } from 'react';
@@ -31,10 +32,8 @@ import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
 import { NoMatchesState } from '~/components/ui/empty-state';
 import { FilterSelect } from '~/components/ui/filter-select';
 import { routes } from '~/lib/site/routes';
-import { api, type RouterOutputs } from '~/trpc/react';
+import { type RouterOutputs, useTRPC } from '~/trpc/react';
 
-type ProgramEnrollment =
-    RouterOutputs['lifting']['program']['listMine']['enrollments'][number];
 type ProgramOwned =
     RouterOutputs['lifting']['program']['listMine']['owned'][number];
 
@@ -45,25 +44,35 @@ const ProgramColumn = {
 } as const;
 
 export function ProgramsManager() {
-    const utilities = api.useUtils();
-    const mine = api.lifting.program.listMine.useQuery();
-    const official = api.lifting.program.listOfficial.useQuery();
+    type ProgramEnrollment =
+        RouterOutputs['lifting']['program']['listMine']['enrollments'][number];
+    const api = useTRPC();
+    const queryClient = useQueryClient();
+    const mine = useQuery(api.lifting.program.listMine.queryOptions());
+    const official = useQuery(api.lifting.program.listOfficial.queryOptions());
 
-    const customProgramDeleteMutation =
-        api.lifting.program.deleteCustom.useMutation({
+    const customProgramDeleteMutation = useMutation(
+        api.lifting.program.deleteCustom.mutationOptions({
             onError: (error) => toast.error(error.message),
             onSuccess: async () => {
                 toast.success('Custom program deleted');
-                await utilities.lifting.program.listMine.invalidate();
+                await queryClient.invalidateQueries(
+                    api.lifting.program.listMine.pathFilter(),
+                );
             },
-        });
-    const unenroll = api.lifting.program.unenroll.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: async () => {
-            toast.success('Unenrolled');
-            await utilities.lifting.program.listMine.invalidate();
-        },
-    });
+        }),
+    );
+    const unenroll = useMutation(
+        api.lifting.program.unenroll.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: async () => {
+                toast.success('Unenrolled');
+                await queryClient.invalidateQueries(
+                    api.lifting.program.listMine.pathFilter(),
+                );
+            },
+        }),
+    );
 
     const ownedRows = useMemo(() => mine.data?.owned ?? [], [mine.data]);
     const enrollments = useMemo(

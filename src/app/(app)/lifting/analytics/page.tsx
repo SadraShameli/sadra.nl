@@ -9,7 +9,7 @@ import { LiftingPageHeader } from '~/app/(app)/lifting/_components/LiftingPageHe
 import { PageTransition } from '~/components/PageTransition';
 import { requireSessionUser } from '~/lib/auth/guards';
 import { cn } from '~/lib/utilities';
-import { api, HydrateClient } from '~/trpc/server';
+import { HydrateClient, prefetch, trpc } from '~/trpc/server';
 
 export const metadata: Metadata = {
     description: 'Charts, PRs, volume, frequency.',
@@ -39,7 +39,7 @@ export default function LiftingAnalyticsPage() {
 
 async function LiftingAnalyticsContent() {
     await requireSessionUser();
-    await api.lifting.settings.get.prefetch();
+    await prefetch(trpc.lifting.settings.get.queryOptions());
     return (
         <HydrateClient>
             <AnalyticsDashboard />

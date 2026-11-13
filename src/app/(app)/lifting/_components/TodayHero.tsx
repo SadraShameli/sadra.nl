@@ -1,5 +1,6 @@
 'use client';
 
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Activity, Play, Trophy } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo } from 'react';
@@ -14,17 +15,23 @@ import { DataTable } from '~/components/ui/data-table';
 import { EmptyState, NoMatchesState } from '~/components/ui/empty-state';
 import { Skeleton } from '~/components/ui/skeleton';
 import { routes } from '~/lib/site/routes';
-import { api } from '~/trpc/react';
+import { useTRPC } from '~/trpc/react';
 
 export function TodayHero() {
-    const summary = api.lifting.analytics.summaryHero.useQuery();
-    const active = api.lifting.workout.getActive.useQuery();
-    const settings = api.lifting.settings.get.useQuery();
+    const api = useTRPC();
+    const summary = useQuery(api.lifting.analytics.summaryHero.queryOptions());
+    const active = useQuery(api.lifting.workout.getActive.queryOptions());
+    const settings = useQuery(api.lifting.settings.get.queryOptions());
     const unitWeight = settings.data?.unitWeight ?? 'kg';
-    const utilities = api.useUtils();
-    const start = api.lifting.workout.start.useMutation({
-        onSuccess: () => utilities.lifting.workout.getActive.invalidate(),
-    });
+    const queryClient = useQueryClient();
+    const start = useMutation(
+        api.lifting.workout.start.mutationOptions({
+            onSuccess: () =>
+                queryClient.invalidateQueries(
+                    api.lifting.workout.getActive.pathFilter(),
+                ),
+        }),
+    );
     const prFilters = usePrFilters(summary.data?.recentPrs);
 
     const prColumns = useMemo(() => prTableColumns(unitWeight), [unitWeight]);

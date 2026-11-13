@@ -3,7 +3,7 @@ import { type Metadata } from 'next';
 import { AccountingPageFrame } from '~/app/(app)/accounting/_components/AccountingPageFrame';
 import { AccountingSection } from '~/app/(app)/accounting/_components/AccountingSection';
 import { requireRootUser } from '~/lib/auth/guards';
-import { api, HydrateClient } from '~/trpc/server';
+import { HydrateClient, prefetch, trpc } from '~/trpc/server';
 
 import { AccountingDashboard } from './_components/AccountingDashboard';
 
@@ -26,8 +26,8 @@ export default function AccountingPage() {
 async function AccountingDashboardContent() {
     await requireRootUser();
     await Promise.all([
-        api.accounting.credentials.list.prefetch(),
-        api.accounting.summary.prefetch(),
+        prefetch(trpc.accounting.credentials.list.queryOptions()),
+        prefetch(trpc.accounting.summary.queryOptions()),
     ]);
     return (
         <HydrateClient>

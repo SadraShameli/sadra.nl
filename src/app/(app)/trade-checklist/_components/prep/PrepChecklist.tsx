@@ -29,7 +29,6 @@ const prepFormSchema = z.object({
     checks: prepChecksSchema,
     notes: z.string(),
 });
-type PrepFormValues = z.infer<typeof prepFormSchema>;
 
 const CHECK_META: Record<PrepCheckKey, { hint: string; label: string }> = {
     accountRiskReset: {
@@ -79,6 +78,7 @@ export function PrepChecklist({
     isToday,
     planId,
 }: PrepChecklistProperties) {
+    type PrepFormValues = z.infer<typeof prepFormSchema>;
     const router = useRouter();
     const [pending, startTransition] = useTransition();
 

@@ -8,7 +8,7 @@ import { PanelSkeleton } from '~/app/(app)/prop-calculator/_components/PanelSkel
 import { ToolId } from '~/app/(app)/prop-calculator/_components/toolCatalog';
 import { ToolPageHeading } from '~/app/(app)/prop-calculator/_components/ToolPageHeading';
 import { ToolSection } from '~/app/(app)/prop-calculator/_components/ToolSection';
-import { LegacySection } from '~/lib/site/legacyCalculatorLinks';
+import { ToolSectionId } from '~/lib/site/toolSectionIds';
 
 const CashFlowPanel = dynamic(
     () => import('~/app/(app)/prop-calculator/_components/CashFlowPanel'),
@@ -23,7 +23,7 @@ export function CashFlowView() {
             <div className="app-prop-calculator__cash-flow mb-10 flex flex-col gap-6">
                 <InputsSummary />
                 <ToolSection
-                    id={LegacySection.CashFlow}
+                    id={ToolSectionId.CashFlow}
                     srOnlyHeading
                     title="Projection"
                 >

@@ -1,5 +1,6 @@
 'use client';
 
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Lock } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -10,7 +11,7 @@ import { WarningNote } from '~/components/WarningNote';
 import { errorMessage } from '~/lib/errorMessage';
 import { formatCurrency } from '~/lib/format';
 import { RuleViolationKind } from '~/lib/prop-accounts';
-import { api } from '~/trpc/react';
+import { useTRPC } from '~/trpc/react';
 
 import {
     hasViolationForDecision,
@@ -46,17 +47,24 @@ export function ProposedRiskCheck({
     readonly onChange: (inputs: RiskCheckInputs) => void;
     readonly recorded: null | RecordedRiskCheck;
 }) {
-    const utilities = api.useUtils();
-    const create = api.propAccounts.violation.create.useMutation({
-        onError: (error) => {
-            toast.error(errorMessage(error));
-        },
-        onSuccess: () => {
-            toast.success('Violation recorded');
-            return utilities.propAccounts.invalidate();
-        },
-    });
-    const violations = api.propAccounts.violation.list.useQuery({ accountId });
+    const api = useTRPC();
+    const queryClient = useQueryClient();
+    const create = useMutation(
+        api.propAccounts.violation.create.mutationOptions({
+            onError: (error) => {
+                toast.error(errorMessage(error));
+            },
+            onSuccess: () => {
+                toast.success('Violation recorded');
+                return queryClient.invalidateQueries(
+                    api.propAccounts.pathFilter(),
+                );
+            },
+        }),
+    );
+    const violations = useQuery(
+        api.propAccounts.violation.list.queryOptions({ accountId }),
+    );
     const loggedDecisionId = create.isSuccess
         ? create.variables.decisionId
         : null;

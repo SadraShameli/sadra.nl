@@ -1,6 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { subDays } from 'date-fns';
 import { LineChart, Plus, Ruler } from 'lucide-react';
 import { useEffect, useId, useMemo, useState } from 'react';
@@ -50,7 +51,7 @@ import {
     type UnitLength,
     type UnitWeight,
 } from '~/lib/lifting/types';
-import { api, type RouterOutputs } from '~/trpc/react';
+import { type RouterOutputs, useTRPC } from '~/trpc/react';
 
 type MeasurementRow = RouterOutputs['lifting']['measurement']['list'][number];
 
@@ -75,24 +76,36 @@ interface Stats {
 }
 
 export function BodyView() {
-    const utilities = api.useUtils();
-    const settings = api.lifting.settings.get.useQuery();
+    const api = useTRPC();
+    const queryClient = useQueryClient();
+    const settings = useQuery(api.lifting.settings.get.queryOptions());
     const unitWeight = settings.data?.unitWeight ?? 'kg';
     const unitLength = settings.data?.unitLength ?? 'cm';
 
-    const measurements = api.lifting.measurement.list.useQuery({});
+    const measurements = useQuery(
+        api.lifting.measurement.list.queryOptions({}),
+    );
 
-    const create = api.lifting.measurement.create.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: async () => {
-            toast.success('Measurement saved');
-            await utilities.lifting.measurement.list.invalidate();
-        },
-    });
-    const remove = api.lifting.measurement.delete.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: () => utilities.lifting.measurement.list.invalidate(),
-    });
+    const create = useMutation(
+        api.lifting.measurement.create.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: async () => {
+                toast.success('Measurement saved');
+                await queryClient.invalidateQueries(
+                    api.lifting.measurement.list.pathFilter(),
+                );
+            },
+        }),
+    );
+    const remove = useMutation(
+        api.lifting.measurement.delete.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: () =>
+                queryClient.invalidateQueries(
+                    api.lifting.measurement.list.pathFilter(),
+                ),
+        }),
+    );
 
     const rows = useMemo(() => measurements.data ?? [], [measurements.data]);
     const stats = useStats(rows, unitWeight);
@@ -545,11 +558,14 @@ function MeasurementTrendChart({
     unitLength: UnitLength;
     unitWeight: UnitWeight;
 }) {
+    const api = useTRPC();
     const [chartKind, setChartKind] = useState<MeasurementKind>('weight');
 
-    const trendData = api.lifting.measurement.list.useQuery({
-        kind: chartKind,
-    });
+    const trendData = useQuery(
+        api.lifting.measurement.list.queryOptions({
+            kind: chartKind,
+        }),
+    );
 
     const displayUnit = defaultUnitFor(chartKind, unitWeight, unitLength);
 

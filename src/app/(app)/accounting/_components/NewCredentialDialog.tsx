@@ -1,6 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation } from '@tanstack/react-query';
 import { AlertCircle, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
@@ -22,7 +23,7 @@ import {
     type CredentialCreateInput,
     credentialCreateSchema,
 } from '~/lib/schemas/accounting';
-import { api } from '~/trpc/react';
+import { useTRPC } from '~/trpc/react';
 
 import { CredentialFormFields, defaultMetaFor } from './CredentialFormFields';
 import { DialogMode, dialogSubmitLabels } from './dialogSubmitLabels';
@@ -31,11 +32,14 @@ import { useRefreshCredentials } from './useRefreshCredentials';
 const CREATE_LABELS = dialogSubmitLabels(DialogMode.Create);
 
 export function NewCredentialDialog() {
+    const api = useTRPC();
     const descriptors = useMemo(() => CredentialRegistry.instance.list(), []);
     const onCreated = useRefreshCredentials();
     const [open, setOpen] = useState(false);
     const initialDescriptor = descriptors[0];
-    const creationMutation = api.accounting.credentials.create.useMutation();
+    const creationMutation = useMutation(
+        api.accounting.credentials.create.mutationOptions(),
+    );
     const form = useForm<
         z.input<typeof credentialCreateSchema>,
         unknown,

@@ -32,13 +32,12 @@ enum FirmMonthColumn {
     Month = 'month',
 }
 
-type AttemptMonth = AttemptThroughputCardModel['months'][number];
-
 export const AttemptThroughputCard = memo(function AttemptThroughputCard({
     model,
 }: {
     readonly model: AttemptThroughputCardModel;
 }) {
+    type AttemptMonth = AttemptThroughputCardModel['months'][number];
     if (model.months.length === 0) {
         return (
             <OverviewEmptyPanel

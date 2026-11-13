@@ -14,7 +14,7 @@ import { SimulationFailureNotice } from '~/app/(app)/prop-calculator/_components
 import { ToolId } from '~/app/(app)/prop-calculator/_components/toolCatalog';
 import { ToolPageHeading } from '~/app/(app)/prop-calculator/_components/ToolPageHeading';
 import { ToolSection } from '~/app/(app)/prop-calculator/_components/ToolSection';
-import { LegacySection } from '~/lib/site/legacyCalculatorLinks';
+import { ToolSectionId } from '~/lib/site/toolSectionIds';
 
 const StrategyAnalysis = dynamic(
     () => import('~/app/(app)/prop-calculator/_components/StrategyAnalysis'),
@@ -60,7 +60,7 @@ export function AnalysisView() {
                 <InputsSummary />
 
                 <ToolSection
-                    id={LegacySection.Strategy}
+                    id={ToolSectionId.Strategy}
                     info={panelDescriptions.strategyAnalysis}
                     isComputing={isPending}
                     isPanel
@@ -78,7 +78,7 @@ export function AnalysisView() {
                 </ToolSection>
 
                 <ToolSection
-                    id={LegacySection.TailRisk}
+                    id={ToolSectionId.TailRisk}
                     info={panelDescriptions.tailRisk}
                     isComputing={isPending}
                     isPanel
@@ -93,7 +93,7 @@ export function AnalysisView() {
                 </ToolSection>
 
                 <ToolSection
-                    id={LegacySection.Drawdown}
+                    id={ToolSectionId.Drawdown}
                     info={panelDescriptions.drawdownDuration}
                     isComputing={isPending}
                     isPanel
@@ -108,7 +108,7 @@ export function AnalysisView() {
                 </ToolSection>
 
                 <ToolSection
-                    id={LegacySection.Resilience}
+                    id={ToolSectionId.Resilience}
                     info={panelDescriptions.resilience}
                     isComputing={isPending}
                     isPanel
@@ -126,7 +126,7 @@ export function AnalysisView() {
                 </ToolSection>
 
                 <ToolSection
-                    id={LegacySection.RuleStressTest}
+                    id={ToolSectionId.RuleStressTest}
                     info={panelDescriptions.ruleStressTest}
                     isPanel
                     title="Rule stress test"

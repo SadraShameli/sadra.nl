@@ -1,5 +1,6 @@
 'use client';
 
+import { useQuery } from '@tanstack/react-query';
 import { Plus, Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -15,7 +16,7 @@ import {
 } from '~/components/ui/command';
 import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import { Skeleton } from '~/components/ui/skeleton';
-import { api } from '~/trpc/react';
+import { useTRPC } from '~/trpc/react';
 
 interface AddExerciseSheetProperties {
     onAdd: (exerciseId: string) => void;
@@ -26,6 +27,7 @@ export function AddExerciseSheet({
     onAdd,
     triggerLabel = 'Add exercise',
 }: AddExerciseSheetProperties) {
+    const api = useTRPC();
     const [open, setOpen] = useState(false);
     const [query, setQuery] = useState('');
     const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -35,9 +37,16 @@ export function AddExerciseSheet({
         return () => clearTimeout(id);
     }, [query]);
 
-    const exercises = api.lifting.exercise.list.useQuery(
-        { includeCustom: true, limit: 100, offset: 0, search: debouncedQuery },
-        { enabled: open },
+    const exercises = useQuery(
+        api.lifting.exercise.list.queryOptions(
+            {
+                includeCustom: true,
+                limit: 100,
+                offset: 0,
+                search: debouncedQuery,
+            },
+            { enabled: open },
+        ),
     );
 
     return (

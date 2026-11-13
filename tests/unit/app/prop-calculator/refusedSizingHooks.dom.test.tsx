@@ -9,6 +9,7 @@ import { type Cell } from '~/app/(app)/prop-calculator/_components/SensitivityHe
 import { baseSimulationFailure } from '~/app/(app)/prop-calculator/_components/simulationFailure';
 import { type CalculatorState } from '~/app/(app)/prop-calculator/_components/types';
 import {
+    type BaseSimulationGate,
     type BaseSimulationRun,
     useBaseSimulation,
 } from '~/app/(app)/prop-calculator/_components/useBaseSimulation';
@@ -29,9 +30,8 @@ vi.mock(import('~/lib/prop-calculator'), async (importOriginal) => {
     return { ...actual, simulate: vi.fn(actual.simulate) };
 });
 
-const OPEN_GATE = {
+const OPEN_GATE: BaseSimulationGate = {
     hasConsumer: true,
-    legacyHashSettled: true,
     mounted: true,
 };
 

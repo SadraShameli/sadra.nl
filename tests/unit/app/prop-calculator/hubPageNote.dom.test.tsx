@@ -15,11 +15,6 @@ vi.mock('~/app/(app)/prop-calculator/_components/hub/HubRecentTools', () => ({
     HubRecentTools: () => null,
 }));
 
-vi.mock(
-    '~/app/(app)/prop-calculator/_components/HubLegacySectionRedirect',
-    () => ({ HubLegacySectionRedirect: () => null }),
-);
-
 vi.mock('~/app/(app)/prop-calculator/_components/HubToolCards', () => ({
     HubToolCards: () => null,
 }));

@@ -71,7 +71,7 @@ const harness = vi.hoisted(() => {
     return {
         mutateOf,
         mutation: (name: string) => ({
-            useMutation: () => ({
+            mutation: () => ({
                 isPending: false,
                 mutate: mutateOf(name),
                 mutateAsync: mutateOf(name),
@@ -79,7 +79,7 @@ const harness = vi.hoisted(() => {
         }),
         queries,
         query: (name: string) => ({
-            useQuery: () => queries.get(name) ?? pending,
+            query: () => queries.get(name) ?? pending,
         }),
         reset() {
             queries.clear();
@@ -104,31 +104,34 @@ vi.mock('~/lib/auth/client', () => ({
     }),
 }));
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        propAccounts: {
-            account: { list: harness.query('account.list') },
-            bankroll: {
-                create: harness.mutation('bankroll.create'),
-                list: harness.query('bankroll.list'),
-                remove: harness.mutation('bankroll.remove'),
-                update: harness.mutation('bankroll.update'),
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        procedures: {
+            propAccounts: {
+                account: { list: harness.query('account.list') },
+                bankroll: {
+                    create: harness.mutation('bankroll.create'),
+                    list: harness.query('bankroll.list'),
+                    remove: harness.mutation('bankroll.remove'),
+                    update: harness.mutation('bankroll.update'),
+                },
+                externalFirm: { list: harness.query('externalFirm.list') },
+                fee: { list: harness.query('fee.list') },
+                firmStatement: {
+                    create: harness.mutation('firmStatement.create'),
+                    list: harness.query('firmStatement.list'),
+                    remove: harness.mutation('firmStatement.remove'),
+                    update: harness.mutation('firmStatement.update'),
+                },
+                payout: { list: harness.query('payout.list') },
             },
-            externalFirm: { list: harness.query('externalFirm.list') },
-            fee: { list: harness.query('fee.list') },
-            firmStatement: {
-                create: harness.mutation('firmStatement.create'),
-                list: harness.query('firmStatement.list'),
-                remove: harness.mutation('firmStatement.remove'),
-                update: harness.mutation('firmStatement.update'),
-            },
-            payout: { list: harness.query('payout.list') },
+            queryClient: () => ({
+                propAccounts: { invalidate: () => Promise.resolve() },
+            }),
         },
-        useUtils: () => ({
-            propAccounts: { invalidate: () => Promise.resolve() },
-        }),
-    },
-}));
+    });
+});
 
 function account() {
     return {

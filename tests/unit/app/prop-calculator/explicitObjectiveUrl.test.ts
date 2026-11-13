@@ -1,10 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { defaultCalculatorState } from '~/app/(app)/prop-calculator/_components/calculatorReducer';
-import {
-    legacyHashNavigation,
-    nextUrl,
-} from '~/app/(app)/prop-calculator/_components/calculatorUrlSync';
+import { nextUrl } from '~/app/(app)/prop-calculator/_components/calculatorUrlSync';
 import {
     decodeState,
     encodeState,
@@ -96,16 +93,6 @@ describe('an explicit MonthlyNet is distinguishable from no objective in the URL
             objectiveUrl: ObjectiveUrlMode.Explicit,
         });
         expect(url).toContain('obj=monthly-net');
-    });
-
-    it('keeps obj=monthly-net in a legacy hash redirect', () => {
-        const navigation = legacyHashNavigation(
-            defaultCalculatorState(),
-            ANALYSIS,
-            '#cash-flow',
-            { objectiveUrl: ObjectiveUrlMode.Explicit },
-        );
-        expect(navigation?.target).toContain('obj=monthly-net');
     });
 
     it('treats an obj value that is not an objective as no objective in the link', () => {

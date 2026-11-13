@@ -11,8 +11,8 @@ const TOOLS_ROOT = path.join(CALCULATOR_ROOT, '(tools)');
 const OBJECTIVE_CHIP_FILE = path.join(COMPONENTS_ROOT, 'ObjectiveChip.tsx');
 const COMPARE_VIEW_FILE = path.join(TOOLS_ROOT, 'compare', 'CompareView.tsx');
 const GATED_RULEBOOK_QUERY =
-    /rulebook\.get\.useQuery\(\s*undefined,\s*\{\s*enabled/;
-const BANKROLL_SUMMARY_QUERY = /bankroll\.summary\.useQuery\(/;
+    /rulebook\.get\.queryOptions\(\s*undefined,\s*\{\s*enabled/;
+const BANKROLL_SUMMARY_QUERY = /bankroll\.summary\.queryOptions\(/;
 const CHOSEN_AUTOMATICALLY = 'Chosen automatically: your available bankroll ${';
 const SOURCE_FILE = /\.tsx?$/;
 

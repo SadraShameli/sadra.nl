@@ -38,7 +38,7 @@ const command = defineCommand({
             type: 'string',
         },
         description: {
-            description: 'Mutation + row description (max 50 chars)',
+            description: 'Mutation + row description (max 255 chars)',
             type: 'string',
         },
         inExVat: {
@@ -53,6 +53,11 @@ const command = defineCommand({
             description:
                 'Top-level ledger id: the account being credited (e.g. a private/equity ledger for personally-funded expenses)',
             required: true,
+            type: 'string',
+        },
+        paymentReference: {
+            description:
+                'Payment reference (max 50 chars); also turns on eBoekhouden duplicate checking for it',
             type: 'string',
         },
         relationId: {

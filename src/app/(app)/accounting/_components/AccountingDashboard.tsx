@@ -1,5 +1,6 @@
 'use client';
 
+import { useMutation, useQuery } from '@tanstack/react-query';
 import {
     AlertCircle,
     CalendarDays,
@@ -62,7 +63,7 @@ import { formatDisplayDate } from '~/lib/format';
 import { DurationFormat } from '~/lib/lifting/format';
 import { apiRoutes, routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
-import { api } from '~/trpc/react';
+import { useTRPC } from '~/trpc/react';
 
 import { EventLog, type LogLine } from './EventLog';
 import { NoConnectionState } from './NoConnectionState';
@@ -458,6 +459,7 @@ function ResultsView({
     runId: null | RunId;
     setPushOpen: (isOpen: boolean) => void;
 }) {
+    const api = useTRPC();
     const isPostable =
         accountingCredentialId.length > 0 &&
         accountingDescriptor?.role === CredentialRole.Accounting;
@@ -468,10 +470,11 @@ function ResultsView({
         setBookings(result.bookings);
     }, [result]);
 
-    const { mutate: updateBooking } =
-        api.accounting.runs.updateBooking.useMutation({
+    const { mutate: updateBooking } = useMutation(
+        api.accounting.runs.updateBooking.mutationOptions({
             onError: toastError,
-        });
+        }),
+    );
     const editBooking = useCallback(
         (txnId: string, patch: Partial<Booking>) => {
             setBookings((previous) =>
@@ -495,13 +498,17 @@ function ResultsView({
         [runId, updateBooking],
     );
 
-    const ledgersQ = api.accounting.ledgers.list.useQuery(
-        { credentialId: accountingCredentialId },
-        { enabled: isPostable },
+    const ledgersQ = useQuery(
+        api.accounting.ledgers.list.queryOptions(
+            { credentialId: accountingCredentialId },
+            { enabled: isPostable },
+        ),
     );
-    const rulesQ = api.accounting.rules.list.useQuery(
-        { credentialId: accountingCredentialId },
-        { enabled: isPostable },
+    const rulesQ = useQuery(
+        api.accounting.rules.list.queryOptions(
+            { credentialId: accountingCredentialId },
+            { enabled: isPostable },
+        ),
     );
     const ledgerOptions = useMemo<LedgerReference[]>(
         () =>
@@ -675,9 +682,12 @@ function StartDatePicker({
 }
 
 function useRunStartDate(accountingCredentialId: string) {
-    const latestDateQ = api.accounting.mutations.latestDate.useQuery(
-        { credentialId: accountingCredentialId },
-        { enabled: !!accountingCredentialId },
+    const api = useTRPC();
+    const latestDateQ = useQuery(
+        api.accounting.mutations.latestDate.queryOptions(
+            { credentialId: accountingCredentialId },
+            { enabled: !!accountingCredentialId },
+        ),
     );
     const [chosenStartDate, setChosenStartDate] = useState<null | string>(null);
     const latest = latestDateQ.data;

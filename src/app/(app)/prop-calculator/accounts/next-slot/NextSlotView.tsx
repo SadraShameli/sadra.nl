@@ -1,5 +1,6 @@
 'use client';
 
+import { useQuery } from '@tanstack/react-query';
 import { ListOrdered } from 'lucide-react';
 import { type ReactNode, useMemo, useState } from 'react';
 import { z } from 'zod';
@@ -48,7 +49,7 @@ import { WarningNote } from '~/components/WarningNote';
 import { NextSlotSortKey, PortfolioLedger } from '~/lib/prop-accounts';
 import { ALL_JOURNAL_DAYS } from '~/lib/prop-accounts/edge';
 import { type SizingObjective } from '~/lib/prop-calculator/advisor';
-import { api } from '~/trpc/react';
+import { useTRPC } from '~/trpc/react';
 
 import {
     type NextSlotListedFirmGroup,
@@ -88,19 +89,34 @@ const sortKeySchema = z.enum(NextSlotSortKey);
 const SORT_SELECT_ID = 'next-slot-sort';
 
 export function NextSlotView({ userId }: { readonly userId: string }) {
+    const api = useTRPC();
     const today = useTodayIsoDate();
     const [objective, setObjective] = useState<null | SizingObjective>(null);
     const [sortKey, setSortKey] = useState(NextSlotSortKey.Objective);
-    const accountsQuery =
-        api.propAccounts.account.list.useQuery(ACCOUNT_LIST_INPUT);
-    const eventsQuery = api.propAccounts.event.list.useQuery(EVENT_LIST_INPUT);
-    const feesQuery = api.propAccounts.fee.list.useQuery(LEDGER_LIST_INPUT);
-    const payoutsQuery =
-        api.propAccounts.payout.list.useQuery(LEDGER_LIST_INPUT);
-    const transfersQuery = api.propAccounts.bankroll.list.useQuery();
-    const engagementsQuery = api.propAccounts.firmEngagement.list.useQuery();
-    const rulebookQuery = api.propAccounts.rulebook.get.useQuery();
-    const edgeQuery = api.propAccounts.edge.summary.useQuery(ALL_JOURNAL_DAYS);
+    const accountsQuery = useQuery(
+        api.propAccounts.account.list.queryOptions(ACCOUNT_LIST_INPUT),
+    );
+    const eventsQuery = useQuery(
+        api.propAccounts.event.list.queryOptions(EVENT_LIST_INPUT),
+    );
+    const feesQuery = useQuery(
+        api.propAccounts.fee.list.queryOptions(LEDGER_LIST_INPUT),
+    );
+    const payoutsQuery = useQuery(
+        api.propAccounts.payout.list.queryOptions(LEDGER_LIST_INPUT),
+    );
+    const transfersQuery = useQuery(
+        api.propAccounts.bankroll.list.queryOptions(),
+    );
+    const engagementsQuery = useQuery(
+        api.propAccounts.firmEngagement.list.queryOptions(),
+    );
+    const rulebookQuery = useQuery(
+        api.propAccounts.rulebook.get.queryOptions(),
+    );
+    const edgeQuery = useQuery(
+        api.propAccounts.edge.summary.queryOptions(ALL_JOURNAL_DAYS),
+    );
 
     const accounts = accountsQuery.data;
     const events = eventsQuery.data;
