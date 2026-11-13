@@ -7,7 +7,6 @@ import { cn } from '~/lib/utilities';
 
 import { HubAccountsTeaser } from './_components/hub/HubAccountsTeaser';
 import { HubRecentTools } from './_components/hub/HubRecentTools';
-import { HubLegacySectionRedirect } from './_components/HubLegacySectionRedirect';
 import { HubToolCards } from './_components/HubToolCards';
 import { buildHubMetadata } from './_components/pageMetadata';
 
@@ -22,7 +21,6 @@ export default function PropertyCalculatorPage() {
                     'container pt-spacing pb-24',
                 )}
             >
-                <HubLegacySectionRedirect />
                 <PageHeader
                     eyebrow={siteToolTitle(ToolTicker.PropCalculator)}
                     lead={

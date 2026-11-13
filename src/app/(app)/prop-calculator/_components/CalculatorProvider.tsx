@@ -126,7 +126,6 @@ export function CalculatorProvider({ children }: CalculatorProviderProperties) {
         calculator.simInputs,
         {
             hasConsumer: consumerCount > 0,
-            legacyHashSettled: calculator.legacyHashSettled,
             mounted: calculator.mounted,
         },
         cache,

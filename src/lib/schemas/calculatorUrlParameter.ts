@@ -3,7 +3,6 @@ export enum CalculatorUrlParameter {
     Firm = 'firm',
     FundedReset = 'qr',
     IdleDayProbability = 'idle',
-    LegacyIdleDayProbability = 'idp',
     Plan = 'plan',
     RebuyLagDays = 'rebuyLag',
 }

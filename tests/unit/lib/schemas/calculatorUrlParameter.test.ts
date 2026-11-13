@@ -6,14 +6,7 @@ import * as leaf from '~/lib/schemas/calculatorUrlParameter';
 import * as url from '~/lib/schemas/url';
 
 const SOURCE_ROOT = path.join(process.cwd(), 'src');
-const LEAF_PATH = path.join(
-    SOURCE_ROOT,
-    'lib',
-    'schemas',
-    'calculatorUrlParameter.ts',
-);
 const FIRM_KEY_CHECKERS = [
-    path.join(SOURCE_ROOT, 'lib', 'site', 'legacyCalculatorLinks.ts'),
     path.join(
         SOURCE_ROOT,
         'app',
@@ -25,13 +18,6 @@ const FIRM_KEY_CHECKERS = [
 ];
 
 describe('the calculator URL parameter leaf module (PT-11h)', () => {
-    it('imports nothing, so the proxy can load it without the engine', () => {
-        const source = readFileSync(LEAF_PATH, 'utf8');
-        expect(source).not.toMatch(/^\s*import\b/m);
-        expect(source).not.toMatch(/\bfrom\s+['"]/);
-        expect(source).not.toMatch(/\brequire\(/);
-    });
-
     it('is the enum url.ts re-exports, not a second copy', () => {
         expect(url.CalculatorUrlParameter).toBe(leaf.CalculatorUrlParameter);
         expect(url.UrlFlag).toBe(leaf.UrlFlag);
@@ -43,7 +29,6 @@ describe('the calculator URL parameter leaf module (PT-11h)', () => {
             Firm: 'firm',
             FundedReset: 'qr',
             IdleDayProbability: 'idle',
-            LegacyIdleDayProbability: 'idp',
             Plan: 'plan',
             RebuyLagDays: 'rebuyLag',
         });

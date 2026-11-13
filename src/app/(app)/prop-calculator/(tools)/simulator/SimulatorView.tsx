@@ -38,7 +38,7 @@ import { Button } from '~/components/ui/button';
 import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import InfoPopover from '~/components/ui/info-popover';
 import { formatCompactCurrency, formatDays } from '~/lib/format';
-import { LegacySection } from '~/lib/site/legacyCalculatorLinks';
+import { ToolSectionId } from '~/lib/site/toolSectionIds';
 import { cn } from '~/lib/utilities';
 
 const ResultsPanel = dynamic(
@@ -76,7 +76,7 @@ export function SimulatorView() {
             <div className="mb-10 flex flex-col gap-6">
                 <ToolSection
                     className="gap-6"
-                    id={LegacySection.Simulator}
+                    id={ToolSectionId.Simulator}
                     title="Inputs and results"
                 >
                     <CalculatorInputsForm
@@ -119,7 +119,7 @@ export function SimulatorView() {
 
                 <ToolSection
                     className="gap-3"
-                    id={LegacySection.Charts}
+                    id={ToolSectionId.Charts}
                     title="Charts"
                 >
                     {failureNotice ??

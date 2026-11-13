@@ -8,7 +8,7 @@ import {
     useSectionComputing,
 } from '~/app/(app)/prop-calculator/_components/ToolSection';
 import { FirmId } from '~/lib/prop-calculator';
-import { LegacySection } from '~/lib/site/legacyCalculatorLinks';
+import { ToolSectionId } from '~/lib/site/toolSectionIds';
 
 import { hasComputingIndicator } from './computingIndicator';
 
@@ -37,7 +37,7 @@ describe('ToolSection', () => {
         return section;
     }
 
-    it.each([LegacySection.TailRisk, `rules-${FirmId.Apex}` as const])(
+    it.each([ToolSectionId.TailRisk, `rules-${FirmId.Apex}` as const])(
         'renders section %s with its id, section class, scroll margin and a labelling h2',
         (id) => {
             act(() => {
@@ -70,7 +70,7 @@ describe('ToolSection', () => {
         act(() => {
             root.render(
                 <ToolSection
-                    id={LegacySection.Simulator}
+                    id={ToolSectionId.Simulator}
                     srOnlyHeading
                     title="Hidden"
                 >
@@ -88,7 +88,7 @@ describe('ToolSection', () => {
         act(() => {
             root.render(
                 <ToolSection
-                    id={LegacySection.TailRisk}
+                    id={ToolSectionId.TailRisk}
                     info="What tail risk means"
                     title="Tail risk"
                 >
@@ -111,7 +111,7 @@ describe('ToolSection', () => {
             root.render(
                 <ToolSection
                     description="One short line"
-                    id={LegacySection.TailRisk}
+                    id={ToolSectionId.TailRisk}
                     info="What tail risk means"
                     isPanel
                     title="Tail risk"
@@ -125,9 +125,9 @@ describe('ToolSection', () => {
         expect(headings.map((heading) => heading.tagName)).toEqual(['H2']);
         const [heading] = headings;
         expect(heading?.textContent).toBe('Tail risk');
-        expect(heading?.id).toBe(`${LegacySection.TailRisk}-heading`);
+        expect(heading?.id).toBe(`${ToolSectionId.TailRisk}-heading`);
         expect(section.getAttribute('aria-labelledby')).toBe(heading?.id);
-        expect(section.id).toBe(LegacySection.TailRisk);
+        expect(section.id).toBe(ToolSectionId.TailRisk);
         expect(section.querySelector('[data-slot="card"]')).not.toBeNull();
         expect(
             section.querySelector(':scope [data-slot="card"] p:not([class])')
@@ -144,7 +144,7 @@ describe('ToolSection', () => {
             root.render(
                 <ToolSection
                     className="extra-class"
-                    id={LegacySection.Charts}
+                    id={ToolSectionId.Charts}
                     title="Charts"
                 >
                     <p>body</p>
@@ -164,7 +164,7 @@ describe('ToolSection', () => {
             act(() => {
                 root.render(
                     <ToolSection
-                        id={LegacySection.FirmComparison}
+                        id={ToolSectionId.FirmComparison}
                         isPanel
                         title="Firm comparison"
                     >
@@ -184,7 +184,7 @@ describe('ToolSection', () => {
         act(() => {
             root.render(
                 <ToolSection
-                    id={LegacySection.FirmComparison}
+                    id={ToolSectionId.FirmComparison}
                     isPanel
                     title="Firm comparison"
                 >
@@ -195,7 +195,7 @@ describe('ToolSection', () => {
         act(() => {
             root.render(
                 <ToolSection
-                    id={LegacySection.FirmComparison}
+                    id={ToolSectionId.FirmComparison}
                     isPanel
                     title="Firm comparison"
                 >

@@ -12,7 +12,7 @@ import { ToolPageHeading } from '~/app/(app)/prop-calculator/_components/ToolPag
 import { ToolSection } from '~/app/(app)/prop-calculator/_components/ToolSection';
 import { SizingMode } from '~/app/(app)/prop-calculator/_components/types';
 import { CENTS_PER_DOLLAR, dollars } from '~/lib/prop-calculator';
-import { LegacySection } from '~/lib/site/legacyCalculatorLinks';
+import { ToolSectionId } from '~/lib/site/toolSectionIds';
 
 const OptimalRiskTable = dynamic(
     () => import('~/app/(app)/prop-calculator/_components/OptimalRiskTable'),
@@ -41,7 +41,7 @@ export function SizingView() {
                 <InputsSummary />
 
                 <ToolSection
-                    id={LegacySection.OptimalRisk}
+                    id={ToolSectionId.OptimalRisk}
                     isPanel
                     title="Optimal risk"
                 >
@@ -64,7 +64,7 @@ export function SizingView() {
                     />
                 </ToolSection>
 
-                <ToolSection id={LegacySection.Sensitivity} title="Sensitivity">
+                <ToolSection id={ToolSectionId.Sensitivity} title="Sensitivity">
                     <SensitivityHeatmap
                         baseInputs={simInputs}
                         currentRR={state.rrRatio}

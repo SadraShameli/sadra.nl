@@ -5,19 +5,10 @@ import {
     calculatorReducer,
     defaultCalculatorState,
 } from '~/app/(app)/prop-calculator/_components/calculatorReducer';
-import {
-    isLegacyHashSettled,
-    legacyHashNavigation,
-    type LegacyHashReplacement,
-    legacyHashReplacement,
-    nextUrl,
-    stillPendingLegacyHash,
-} from '~/app/(app)/prop-calculator/_components/calculatorUrlSync';
+import { nextUrl } from '~/app/(app)/prop-calculator/_components/calculatorUrlSync';
 import { type CalculatorState } from '~/app/(app)/prop-calculator/_components/types';
 import { encodeState } from '~/app/(app)/prop-calculator/_components/urlState';
-import { shouldRunBaseSimulation } from '~/app/(app)/prop-calculator/_components/useBaseSimulation';
 import { initialStateFromSearch } from '~/app/(app)/prop-calculator/_components/useCalculator';
-import { LegacySection } from '~/lib/site/legacyCalculatorLinks';
 import { routes } from '~/lib/site/routes';
 
 const {
@@ -104,17 +95,6 @@ function canonical(
     return `${pathname}?${query(state)}${hash}`;
 }
 
-function mountWithLegacyHash(
-    browser: FakeBrowser,
-    state: CalculatorState,
-): LegacyHashReplacement {
-    const { hash, pathname } = browser.current;
-    const pending = legacyHashReplacement(state, pathname, hash);
-    if (pending === null) throw new Error('expected a legacy replacement');
-    browser.navigate(pending.target);
-    return pending;
-}
-
 function parse(url: string): Entry {
     const parsed = new URL(url, 'https://sadra.nl');
     return {
@@ -124,32 +104,12 @@ function parse(url: string): Entry {
     };
 }
 
-function providerPass(
-    browser: FakeBrowser,
-    state: CalculatorState,
-    pending: LegacyHashReplacement | null,
-): void {
-    if (!isLegacyHashSettled(true, pending, browser.current.pathname)) return;
-    browser.sync(state);
-}
-
 function query(state: CalculatorState): string {
     return encodeState(state, { pageBlobs: [] }).toString();
 }
 
 function sharedState(): CalculatorState {
     return withWinrate(defaultCalculatorState(), 0.45);
-}
-
-function shouldBaseSimulationRun(
-    pending: LegacyHashReplacement | null,
-    pathname: string,
-): boolean {
-    return shouldRunBaseSimulation({
-        hasConsumer: true,
-        legacyHashSettled: isLegacyHashSettled(true, pending, pathname),
-        mounted: true,
-    });
 }
 
 function withWinrate(state: CalculatorState, value: number): CalculatorState {
@@ -346,158 +306,5 @@ describe('nextUrl bankroll page inputs', () => {
             nextUrl(state, simulator, '?bkb=5000&wr=0.3', ''),
         );
         expect(written.has('bkb')).toBe(false);
-    });
-});
-
-describe('legacyHashNavigation', () => {
-    it('replaces the route for a legacy hash before the first write and later writes keep the fragment', () => {
-        const q0 = query(sharedState());
-        const browser = new FakeBrowser(`${simulator}?${q0}#tail-risk`);
-        let state = initialStateFromSearch(`?${q0}`);
-        const { hash, pathname } = browser.current;
-        const navigation = legacyHashNavigation(state, pathname, hash);
-        expect(navigation).toEqual({
-            fragment: LegacySection.TailRisk,
-            route: analysis,
-            target: `${analysis}?${q0}#tail-risk`,
-        });
-        if (navigation === null) throw new Error('expected a target');
-        browser.replace(navigation.target);
-
-        browser.sync(state);
-        expect(browser.writes).toBe(0);
-
-        state = withWinrate(state, 0.52);
-        browser.sync(state);
-        expect(browser.url).toBe(canonical(analysis, state, '#tail-risk'));
-    });
-
-    it('holds the writer and the base simulation until the replacement lands for a bare link', () => {
-        const browser = new FakeBrowser(`${simulator}#tail-risk`);
-        let state = initialStateFromSearch(browser.current.search);
-        expect(nextUrl(state, simulator, '', '#tail-risk')).not.toBeNull();
-
-        const pending = mountWithLegacyHash(browser, state);
-        expect(pending).toEqual({
-            fragment: LegacySection.TailRisk,
-            from: simulator,
-            route: analysis,
-            target: `${analysis}?${query(state)}#tail-risk`,
-        });
-
-        providerPass(browser, state, pending);
-        expect(browser.writes).toBe(0);
-        expect(shouldBaseSimulationRun(pending, browser.current.pathname)).toBe(
-            false,
-        );
-
-        browser.land();
-        expect(browser.url).toBe(canonical(analysis, state, '#tail-risk'));
-        expect(shouldBaseSimulationRun(pending, browser.current.pathname)).toBe(
-            true,
-        );
-        providerPass(browser, state, pending);
-        expect(browser.writes).toBe(0);
-
-        state = withWinrate(state, 0.52);
-        providerPass(browser, state, pending);
-        expect(browser.url).toBe(canonical(analysis, state, '#tail-risk'));
-    });
-
-    it('holds the writer until the replacement lands for a query in a different parameter order', () => {
-        const state = sharedState();
-        const reordered = [...encodeState(state)]
-            .toReversed()
-            .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
-            .join('&');
-        const browser = new FakeBrowser(`${simulator}?${reordered}#cash-flow`);
-        const decoded = initialStateFromSearch(browser.current.search);
-        expect(query(decoded)).toBe(query(state));
-        expect(
-            nextUrl(decoded, simulator, `?${reordered}`, '#cash-flow'),
-        ).not.toBeNull();
-
-        const pending = mountWithLegacyHash(browser, decoded);
-        providerPass(browser, decoded, pending);
-        expect(browser.writes).toBe(0);
-
-        browser.land();
-        expect(browser.url).toBe(
-            canonical(routes.propCalculator.cashFlow, decoded, '#cash-flow'),
-        );
-    });
-
-    it('returns null for an unknown hash, an empty hash, or a section on the current page', () => {
-        const state = sharedState();
-        expect(legacyHashNavigation(state, simulator, '')).toBeNull();
-        expect(legacyHashNavigation(state, simulator, '#nope')).toBeNull();
-        expect(legacyHashNavigation(state, simulator, '#charts')).toBeNull();
-        expect(legacyHashNavigation(state, analysis, '#tail-risk')).toBeNull();
-    });
-});
-
-describe('legacyHashReplacement', () => {
-    it('records the source path, the section and the target of a legacy hash', () => {
-        const state = sharedState();
-        expect(legacyHashReplacement(state, simulator, '#tail-risk')).toEqual({
-            fragment: LegacySection.TailRisk,
-            from: simulator,
-            route: analysis,
-            target: `${analysis}?${query(state)}#tail-risk`,
-        });
-    });
-
-    it('issues no replacement without a legacy hash or for a section on the current page', () => {
-        const state = sharedState();
-        expect(legacyHashReplacement(state, simulator, '')).toBeNull();
-        expect(legacyHashReplacement(state, simulator, '#nope')).toBeNull();
-        expect(legacyHashReplacement(state, analysis, '#tail-risk')).toBeNull();
-    });
-});
-
-describe('isLegacyHashSettled', () => {
-    const pending: LegacyHashReplacement = {
-        fragment: LegacySection.TailRisk,
-        from: simulator,
-        route: analysis,
-        target: `${analysis}?x=1#tail-risk`,
-    };
-
-    it('is never settled before mount', () => {
-        expect(isLegacyHashSettled(false, null, simulator)).toBe(false);
-        expect(isLegacyHashSettled(false, pending, analysis)).toBe(false);
-    });
-
-    it('settles on mount when no replacement was issued', () => {
-        expect(isLegacyHashSettled(true, null, simulator)).toBe(true);
-    });
-
-    it('stays unsettled while the pathname is still the source page', () => {
-        expect(isLegacyHashSettled(true, pending, simulator)).toBe(false);
-    });
-
-    it('settles once the pathname has left the source page', () => {
-        expect(isLegacyHashSettled(true, pending, analysis)).toBe(true);
-        expect(isLegacyHashSettled(true, pending, sizing)).toBe(true);
-    });
-});
-
-describe('stillPendingLegacyHash', () => {
-    const pending: LegacyHashReplacement = {
-        fragment: LegacySection.TailRisk,
-        from: simulator,
-        route: analysis,
-        target: `${analysis}?x=1#tail-risk`,
-    };
-
-    it('keeps the replacement pending while still on the source page', () => {
-        expect(stillPendingLegacyHash(pending, simulator)).toBe(pending);
-        expect(stillPendingLegacyHash(null, simulator)).toBeNull();
-    });
-
-    it('clears the replacement once it lands, so a later visit to the source page stays settled', () => {
-        const cleared = stillPendingLegacyHash(pending, analysis);
-        expect(cleared).toBeNull();
-        expect(isLegacyHashSettled(true, cleared, simulator)).toBe(true);
     });
 });

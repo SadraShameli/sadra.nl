@@ -25,7 +25,7 @@ import { ToolPageHeading } from '~/app/(app)/prop-calculator/_components/ToolPag
 import { ToolSection } from '~/app/(app)/prop-calculator/_components/ToolSection';
 import { FilterToolbar } from '~/components/FilterToolbar';
 import { Card } from '~/components/ui/card';
-import { LegacySection } from '~/lib/site/legacyCalculatorLinks';
+import { ToolSectionId } from '~/lib/site/toolSectionIds';
 
 const PlanComparisonTable = dynamic(
     () => import('~/app/(app)/prop-calculator/_components/PlanComparisonTable'),
@@ -80,7 +80,7 @@ export function CompareView() {
                 </Card>
                 <ToolSection
                     description={`Plans within ${state.firm.displayName}`}
-                    id={LegacySection.PlanComparison}
+                    id={ToolSectionId.PlanComparison}
                     isPanel
                     title="Plan comparison"
                 >
@@ -96,7 +96,7 @@ export function CompareView() {
                     />
                 </ToolSection>
                 <ToolSection
-                    id={LegacySection.FirmComparison}
+                    id={ToolSectionId.FirmComparison}
                     isPanel
                     title="Firm comparison"
                 >

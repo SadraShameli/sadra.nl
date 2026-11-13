@@ -13,7 +13,7 @@ import { ToolPanel } from '~/components/ToolPanel';
 import { ToolSectionHeading } from '~/components/ToolSectionHeading';
 import InfoPopover from '~/components/ui/info-popover';
 import { type FirmId } from '~/lib/prop-calculator';
-import { type LegacySection } from '~/lib/site/legacyCalculatorLinks';
+import { type ToolSectionId } from '~/lib/site/toolSectionIds';
 import { cn } from '~/lib/utilities';
 
 type SectionComputingReporter = (isComputing: boolean) => void;
@@ -26,7 +26,7 @@ interface ToolSectionProperties {
     children: ReactNode;
     className?: string;
     description?: ReactNode;
-    id: `rules-${FirmId}` | LegacySection;
+    id: `rules-${FirmId}` | ToolSectionId;
     info?: ReactNode;
     isComputing?: boolean;
     isPanel?: boolean;

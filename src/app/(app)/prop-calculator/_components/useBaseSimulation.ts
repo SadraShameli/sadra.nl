@@ -22,7 +22,6 @@ export interface BaseSimulation {
 
 export interface BaseSimulationGate {
     hasConsumer: boolean;
-    legacyHashSettled: boolean;
     mounted: boolean;
 }
 
@@ -42,10 +41,9 @@ export function baseSimulationKey(inputs: SimInputs): string {
 
 export function shouldRunBaseSimulation({
     hasConsumer,
-    legacyHashSettled,
     mounted,
 }: BaseSimulationGate): boolean {
-    return mounted && legacyHashSettled && hasConsumer;
+    return mounted && hasConsumer;
 }
 
 export function useBaseSimulation(

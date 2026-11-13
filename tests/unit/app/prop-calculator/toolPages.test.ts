@@ -11,11 +11,8 @@ import {
     toolCatalogEntry,
     ToolId,
 } from '~/app/(app)/prop-calculator/_components/toolCatalog';
-import {
-    LegacySection,
-    legacySectionTarget,
-} from '~/lib/site/legacyCalculatorLinks';
 import { indexableRoutes, routes } from '~/lib/site/routes';
+import { ToolSectionId } from '~/lib/site/toolSectionIds';
 
 import { aliasPathOf } from '../../importSpecifiers';
 import {
@@ -35,10 +32,6 @@ const CALCULATOR_ROOT = path.join(
 const COMPONENTS_ROOT = path.join(CALCULATOR_ROOT, '_components');
 const HUB_PAGE_PATH = path.join(CALCULATOR_ROOT, 'page.tsx');
 const HUB_CARDS_PATH = path.join(COMPONENTS_ROOT, 'HubToolCards.tsx');
-const HUB_REDIRECT_PATH = path.join(
-    COMPONENTS_ROOT,
-    'HubLegacySectionRedirect.tsx',
-);
 const PROVIDER_PATH = path.join(COMPONENTS_ROOT, 'CalculatorProvider.tsx');
 const RETIRED_MODULES = ['CalculatorShell', 'SectionNav'];
 const SUBNAV_SLOT_QUERY = "'#navbar-subnav-slot'";
@@ -114,7 +107,7 @@ interface ToolPageSpec {
     consumesBaseResult: boolean;
     folder: string;
     hidesPendingResult: boolean;
-    innerSections: readonly LegacySection[];
+    innerSections: readonly ToolSectionId[];
     panels: readonly string[];
     route: string;
     toolId: ToolId;
@@ -188,7 +181,7 @@ const PAGES: readonly ToolPageSpec[] = [
         consumesBaseResult: false,
         folder: 'ladder-lab',
         hidesPendingResult: false,
-        innerSections: [LegacySection.LadderLab],
+        innerSections: [ToolSectionId.LadderLab],
         panels: ['LadderLabPanel'],
         route: routes.propCalculator.ladderLab,
         toolId: ToolId.LadderLab,
@@ -219,8 +212,8 @@ const PAGES: readonly ToolPageSpec[] = [
     },
 ];
 
-const INNER_SECTION_PANELS: Readonly<Partial<Record<LegacySection, string>>> = {
-    [LegacySection.LadderLab]: 'LadderLabPanel',
+const INNER_SECTION_PANELS: Readonly<Partial<Record<ToolSectionId, string>>> = {
+    [ToolSectionId.LadderLab]: 'LadderLabPanel',
 };
 
 const ALL_TOOL_PANELS = [
@@ -503,6 +496,25 @@ function resolveImportUncached(from: string, specifier: string): null | string {
     );
 }
 
+const SECTION_ROUTES: Readonly<Record<ToolSectionId, string>> = {
+    [ToolSectionId.CashFlow]: routes.propCalculator.cashFlow,
+    [ToolSectionId.Charts]: routes.propCalculator.simulator,
+    [ToolSectionId.Drawdown]: routes.propCalculator.analysis,
+    [ToolSectionId.FirmComparison]: routes.propCalculator.compare,
+    [ToolSectionId.LadderLab]: routes.propCalculator.ladderLab,
+    [ToolSectionId.LadderLabSection]: routes.propCalculator.ladderLab,
+    [ToolSectionId.OptimalRisk]: routes.propCalculator.sizing,
+    [ToolSectionId.PlanComparison]: routes.propCalculator.compare,
+    [ToolSectionId.Portfolio]: routes.propCalculator.planner,
+    [ToolSectionId.Resilience]: routes.propCalculator.analysis,
+    [ToolSectionId.RuleStressTest]: routes.propCalculator.analysis,
+    [ToolSectionId.Sensitivity]: routes.propCalculator.sizing,
+    [ToolSectionId.Simulator]: routes.propCalculator.simulator,
+    [ToolSectionId.Strategy]: routes.propCalculator.analysis,
+    [ToolSectionId.StrategyLab]: routes.propCalculator.strategyLab,
+    [ToolSectionId.TailRisk]: routes.propCalculator.analysis,
+};
+
 function resultGuard(spec: ToolPageSpec): string {
     return spec.hidesPendingResult
         ? 'result === null || isPending ?'
@@ -515,16 +527,17 @@ function sectionAttributes(source: string): string[] {
 
 function sectionIds(source: string): string[] {
     return jsxAttributes(source, 'ToolSection').map((attributes) => {
-        const match = /id=\{LegacySection\.(\w+)\}/.exec(attributes);
-        if (match === null) throw new Error('ToolSection without a legacy id');
-        const member = match[1] as keyof typeof LegacySection;
-        return LegacySection[member];
+        const match = /id=\{ToolSectionId\.(\w+)\}/.exec(attributes);
+        if (match === null)
+            throw new Error('ToolSection without a ToolSectionId');
+        const member = match[1] as keyof typeof ToolSectionId;
+        return ToolSectionId[member];
     });
 }
 
 function sectionsOnRoute(route: string): string[] {
-    return Object.values(LegacySection).filter(
-        (section) => legacySectionTarget(`#${section}`)?.route === route,
+    return Object.values(ToolSectionId).filter(
+        (section) => SECTION_ROUTES[section] === route,
     );
 }
 
@@ -624,7 +637,7 @@ describe.each(PAGES)('the $folder tool page', (spec) => {
         expect(view).not.toMatch(/<h1[\s>]/);
     });
 
-    it('wraps exactly the legacy sections mapped to its route, each once, in a ToolSection with a title', () => {
+    it('wraps exactly the sections that belong to its route, each once, in a ToolSection with a title', () => {
         const view = viewSource(spec);
         const ids = sectionIds(view);
         expect(ids.toSorted(byText)).toEqual(
@@ -650,7 +663,7 @@ describe.each(PAGES)('the $folder tool page', (spec) => {
         expect(srOnly).toHaveLength(sections.length === 1 ? 1 : 0);
     });
 
-    it('keeps every inner legacy id inside its panel with the header-height scroll margin, so a legacy fragment lands below the navbar', () => {
+    it('keeps every inner section id inside its panel with the header-height scroll margin, so a fragment link lands below the navbar', () => {
         for (const section of spec.innerSections) {
             const panel = INNER_SECTION_PANELS[section];
             expect(panel).toBeDefined();
@@ -784,13 +797,13 @@ describe('the simulator page', () => {
 
     it('has no Strategy, Tail Risk or Portfolio section', () => {
         const ids = sectionIds(viewSource(spec));
-        expect(ids).not.toContain(LegacySection.Strategy);
-        expect(ids).not.toContain(LegacySection.TailRisk);
-        expect(ids).not.toContain(LegacySection.Portfolio);
+        expect(ids).not.toContain(ToolSectionId.Strategy);
+        expect(ids).not.toContain(ToolSectionId.TailRisk);
+        expect(ids).not.toContain(ToolSectionId.Portfolio);
     });
 });
 
-describe('every legacy section of the eight tool pages', () => {
+describe('every section of the eight tool pages', () => {
     it('lives on exactly one of them', () => {
         const all = PAGES.flatMap((spec) => [
             ...sectionIds(viewSource(spec)),
@@ -798,7 +811,7 @@ describe('every legacy section of the eight tool pages', () => {
         ]);
         expect(new Set(all).size).toBe(all.length);
         expect(all.toSorted(byText)).toEqual(
-            Object.values(LegacySection).toSorted(byText),
+            Object.values(ToolSectionId).toSorted(byText),
         );
     });
 });
@@ -1187,13 +1200,11 @@ describe('the hub page (F-8)', () => {
         expect(page.match(/<main[\s>]/g)).toHaveLength(1);
         expect(tagCount(page, PAGE_HEADING_TAG)).toBe(1);
         expect(page).toContain('<HubToolCards />');
-        expect(page).toContain('<HubLegacySectionRedirect />');
     });
 
     it('never mounts the calculator provider or the ladder search', () => {
         const closure = importClosure([HUB_PAGE_PATH], true);
         expect(closure).toContain(HUB_CARDS_PATH);
-        expect(closure).toContain(HUB_REDIRECT_PATH);
         expect(closure).not.toContain(PROVIDER_PATH);
         expect(closure).not.toContain(LADDER_SEARCH_PATH);
     });

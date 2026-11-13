@@ -406,7 +406,6 @@ export function decodeState(
         ...Object.fromEntries(parameters),
         [CalculatorUrlParameter.IdleDayProbability]:
             parameters.get(CalculatorUrlParameter.IdleDayProbability) ??
-            parameters.get(CalculatorUrlParameter.LegacyIdleDayProbability) ??
             undefined,
     });
     const sizingMode =
