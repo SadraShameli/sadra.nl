@@ -15,6 +15,14 @@ export interface WiseCardTransaction {
     secondaryCurrency: string;
 }
 
+export interface WiseIncomingTransfer {
+    amount: number;
+    created: string;
+    currency: string;
+    id: string;
+    payer: string;
+}
+
 export interface WiseProfile {
     id: number;
     type: string;
@@ -61,6 +69,7 @@ const activitySchema = z.object({
     title: z.string().nullish(),
     type: z.string(),
 });
+type WiseActivity = z.infer<typeof activitySchema>;
 const activitiesSchema = z.object({
     activities: z.array(activitySchema).default([]),
     cursor: z.string().nullish(),
@@ -93,6 +102,34 @@ export class WiseClient {
             : WiseClient.PRODUCTION_URL;
         this.fetchImpl = options.fetch ?? fetch;
         this.timeoutMs = options.timeoutMs ?? 30_000;
+    }
+
+    private async collectActivities<T>(
+        profileId: number,
+        parsePage: (activities: readonly WiseActivity[]) => {
+            isStop: boolean;
+            items: T[];
+        },
+    ): Promise<T[]> {
+        const out: T[] = [];
+        let nextCursor: null | string = null;
+        for (;;) {
+            const parameters: Record<string, string> = {
+                size: String(PAGE_SIZE),
+                ...(nextCursor && { nextCursor }),
+            };
+            const body = await this.get<unknown>(
+                `/v1/profiles/${profileId}/activities`,
+                parameters,
+            );
+            const parsed = activitiesSchema.parse(body);
+            const { isStop, items } = parsePage(parsed.activities);
+            out.push(...items);
+            if (isStop || !parsed.cursor || parsed.activities.length === 0)
+                break;
+            nextCursor = parsed.cursor;
+        }
+        return out;
     }
 
     private async get<T>(
@@ -148,29 +185,29 @@ export class WiseClient {
         profileId: number;
         to: string;
     }): Promise<WiseCardTransaction[]> {
-        const out: WiseCardTransaction[] = [];
-        let nextCursor: null | string = null;
-        for (;;) {
-            const parameters: Record<string, string> = {
-                size: String(PAGE_SIZE),
-                ...(nextCursor && { nextCursor }),
-            };
-            const body = await this.get<unknown>(
-                `/v1/profiles/${arguments_.profileId}/activities`,
-                parameters,
-            );
-            const parsed = activitiesSchema.parse(body);
+        return this.collectActivities(arguments_.profileId, (activities) => {
             const { isStop, transactions } = parseCardActivityPage(
-                parsed.activities,
+                activities,
                 arguments_.from,
                 arguments_.to,
             );
-            out.push(...transactions);
-            if (isStop || !parsed.cursor || parsed.activities.length === 0)
-                break;
-            nextCursor = parsed.cursor;
-        }
-        return out;
+            return { isStop, items: transactions };
+        });
+    }
+
+    async listIncomingTransfers(arguments_: {
+        from: string;
+        profileId: number;
+        to: string;
+    }): Promise<WiseIncomingTransfer[]> {
+        return this.collectActivities(arguments_.profileId, (activities) => {
+            const { isStop, transfers } = parseIncomingTransferPage(
+                activities,
+                arguments_.from,
+                arguments_.to,
+            );
+            return { isStop, items: transfers };
+        });
     }
 
     async listTransfers(arguments_: {
@@ -279,4 +316,39 @@ function parseCardActivityPage(
 
 function parseDatetimeIso(raw: string): string {
     return raw.replace(' ', 'T').replace('Z', '+00:00');
+}
+
+function parseIncomingTransferPage(
+    activities: readonly WiseActivity[],
+    from: string,
+    to: string,
+): { isStop: boolean; transfers: WiseIncomingTransfer[] } {
+    const transfers: WiseIncomingTransfer[] = [];
+    let isStop = false;
+    for (const a of activities) {
+        const created = parseDatetimeIso(a.createdOn);
+        const createdDate = created.slice(0, 10);
+        if (createdDate < from) {
+            isStop = true;
+            continue;
+        }
+        if (
+            a.type !== 'TRANSFER' ||
+            a.status !== 'COMPLETED' ||
+            createdDate > to ||
+            !isPositiveAmount(a.primaryAmount)
+        )
+            continue;
+        const primary = parseAmount(a.primaryAmount);
+        if (!primary) continue;
+        const [amount, currency] = primary;
+        transfers.push({
+            amount,
+            created,
+            currency,
+            id: String(a.resource.id),
+            payer: (a.title ?? '').replaceAll(TAG_RE, '').trim(),
+        });
+    }
+    return { isStop, transfers };
 }

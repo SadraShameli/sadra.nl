@@ -51,6 +51,53 @@ function wiseFetch(activities: object[]): typeof fetch {
     });
 }
 
+describe('wiseApiSource – incoming transfers', () => {
+    const incoming = activity({
+        primaryAmount: '<positive>+ 2,250 USD</positive>',
+        title: '<strong>Rise Works  Inc.</strong>',
+        type: 'TRANSFER',
+    });
+
+    it('ignores incoming transfers unless includeIncoming is on', async () => {
+        const txns = await wiseApiSource.fetch(
+            makeContext(wiseFetch([incoming])),
+        );
+        expect(txns).toHaveLength(0);
+    });
+
+    it('imports an incoming transfer as an IN transaction when includeIncoming is on', async () => {
+        const context = {
+            ...makeContext(wiseFetch([incoming])),
+            meta: { includeIncoming: true, profileId: PROFILE_ID },
+        };
+        const txns = await wiseApiSource.fetch(context);
+        expect(txns).toHaveLength(1);
+        expect(txns[0]).toMatchObject({
+            direction: 'IN',
+            merchant: 'Rise Works  Inc.',
+            sourceAmount: 2250,
+            sourceCurrency: 'USD',
+            txnId: 'wise-in-999',
+        });
+    });
+
+    it('does not import outgoing transfers as incoming', async () => {
+        const context = {
+            ...makeContext(
+                wiseFetch([
+                    activity({
+                        primaryAmount: '1,000 USD',
+                        title: 'Sadra Shameli',
+                        type: 'TRANSFER',
+                    }),
+                ]),
+            ),
+            meta: { includeIncoming: true, profileId: PROFILE_ID },
+        };
+        expect(await wiseApiSource.fetch(context)).toHaveLength(0);
+    });
+});
+
 describe('wiseApiSource – sourceCurrency selection', () => {
     it('EUR primary, USD secondary (e.g. STRATO from USD balance): uses EUR primary directly', async () => {
         const context = makeContext(
