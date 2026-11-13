@@ -42,19 +42,23 @@ export class RiseCsvParser {
         const txns: RawTransaction[] = [];
         for (const row of parsed.data) {
             const description = row[COLUMNS.description]?.trim() ?? '';
-            const amount = Number(row[COLUMNS.amount]?.trim());
             const incoming = INCOMING_PATTERN.exec(description);
-            const dateParts = DATE_PATTERN.exec(
-                row[COLUMNS.date]?.trim() ?? '',
-            )?.groups;
             const payer = incoming?.groups?.payer;
-            if (
-                payer === undefined ||
-                dateParts === undefined ||
-                !Number.isFinite(amount) ||
-                amount <= 0
-            ) {
-                continue;
+            if (payer === undefined) continue;
+
+            const amountRaw = row[COLUMNS.amount]?.trim() ?? '';
+            const amount = Number(amountRaw);
+            if (amountRaw === '' || !Number.isFinite(amount) || amount <= 0) {
+                throw new Error(
+                    `Rise CSV payout from ${payer} has an unreadable amount "${amountRaw}"`,
+                );
+            }
+            const dateRaw = row[COLUMNS.date]?.trim() ?? '';
+            const dateParts = DATE_PATTERN.exec(dateRaw)?.groups;
+            if (dateParts === undefined) {
+                throw new Error(
+                    `Rise CSV payout from ${payer} has an unreadable date "${dateRaw}"`,
+                );
             }
 
             const date = isoDateSchema.parse(
@@ -69,7 +73,7 @@ export class RiseCsvParser {
                 sourceFee: 0,
                 sourceFeeCurrency: null,
                 sourceId: 'rise-csv',
-                txnId: `rise:${incoming?.groups?.hash ?? `${date}:${payer}:${amount.toFixed(2)}`}`,
+                txnId: `rise:${incoming?.groups?.hash ?? `${date}:${amount.toFixed(2)}:${payer}`}`,
             });
         }
         return txns;

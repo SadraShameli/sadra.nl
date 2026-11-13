@@ -46,8 +46,44 @@ describe('RiseCsvParser', () => {
         );
 
         expect(txns[0]?.txnId).toBe(
-            'rise:2026-11-05:payer@example.com:1948.98',
+            'rise:2026-11-05:1948.98:payer@example.com',
         );
+    });
+
+    it('keeps two different amounts from a long payer distinct within the 50 char payment reference', () => {
+        const payer =
+            'a-very-long-payer-address-for-testing@example-company.com';
+        const txns = new RiseCsvParser().parse(
+            [
+                HEADER,
+                `2026/11/05 10:00:00,Paid from ${payer},100.00`,
+                `2026/11/05 11:00:00,Paid from ${payer},250.00`,
+            ].join('\n'),
+        );
+
+        const references = txns.map((txn) => txn.txnId.slice(0, 50));
+        expect(new Set(references).size).toBe(2);
+    });
+
+    it('fails loudly on a payout row whose amount cannot be read', () => {
+        expect(() =>
+            new RiseCsvParser().parse(
+                [
+                    HEADER,
+                    '2026/11/05 10:00:00,Paid from payer@example.com,"1,948.98"',
+                ].join('\n'),
+            ),
+        ).toThrow(/unreadable amount "1,948.98"/);
+    });
+
+    it('fails loudly on a payout row whose date cannot be read', () => {
+        expect(() =>
+            new RiseCsvParser().parse(
+                [HEADER, '05-11-2026,Paid from payer@example.com,1948.98'].join(
+                    '\n',
+                ),
+            ),
+        ).toThrow(/unreadable date "05-11-2026"/);
     });
 
     it('strips a byte order mark before reading the header', () => {
