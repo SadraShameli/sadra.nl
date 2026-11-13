@@ -114,3 +114,37 @@ describe('WiseClient.listCardTransactions', () => {
         expect(txns[0]?.isRefund).toBe(false);
     });
 });
+
+describe('WiseClient.listActivityTransactions', () => {
+    it('reads card spending and incoming transfers from one pass over the feed', async () => {
+        const fetchMock = mockFetch([
+            activity({ title: 'Netflix', type: 'CARD_PAYMENT' }),
+            activity({
+                primaryAmount: '+ 2,250 USD',
+                title: 'Rise Works  Inc.',
+                type: 'TRANSFER',
+            }),
+            activity({
+                primaryAmount: '-1,000 USD',
+                title: 'Sadra Shameli',
+                type: 'TRANSFER',
+            }),
+        ]);
+        const client = new WiseClient('tok', { fetch: fetchMock });
+
+        const { cards, incoming } = await client.listActivityTransactions({
+            from: FROM,
+            profileId: PROFILE_ID,
+            to: TO,
+        });
+
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(cards.map((card) => card.merchant)).toEqual(['Netflix']);
+        expect(incoming).toHaveLength(1);
+        expect(incoming[0]).toMatchObject({
+            amount: 2250,
+            currency: 'USD',
+            payer: 'Rise Works  Inc.',
+        });
+    });
+});

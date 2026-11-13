@@ -35,13 +35,12 @@ class WiseApiSource extends ApiSourceBase {
 
         const isIncludeIncoming = context.meta.includeIncoming === true;
         const range = { from: context.from, profileId, to: context.to };
-        const [transfers, cards, incoming] = await Promise.all([
+        const [transfers, activities] = await Promise.all([
             client.listTransfers(range),
-            client.listCardTransactions(range),
-            isIncludeIncoming
-                ? client.listIncomingTransfers(range)
-                : Promise.resolve([]),
+            client.listActivityTransactions(range),
         ]);
+        const { cards } = activities;
+        const incoming = isIncludeIncoming ? activities.incoming : [];
 
         const uniqueAccountIds = [
             ...new Set(transfers.map((t) => t.targetAccountId)),
