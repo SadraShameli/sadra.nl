@@ -1,11 +1,7 @@
 import { eq, sql } from 'drizzle-orm';
 
-import type {
-    BookingDirection,
-    CurrencyCode,
-} from '~/lib/accounting/core/types';
+import type { BookingDirection } from '~/lib/accounting/core/types';
 
-import { currencyCodeSchema } from '~/lib/accounting/core/currency';
 import { LedgerId } from '~/lib/accounting/core/ids';
 import { CredentialKind } from '~/lib/accounting/credentials/registry';
 import { VatCode } from '~/lib/accounting/providers/eboekhouden/enums';
@@ -16,6 +12,8 @@ import {
     db,
 } from '~/server/db';
 import { DatabaseSeeder } from '~/server/db/types';
+
+import { seedBankAccountsFor } from './bankAccounts';
 
 interface LedgerReference {
     id: LedgerId;
@@ -38,59 +36,6 @@ const PAYOUTS: LedgerReference = {
     id: LedgerId('48217305'),
     label: '0004 Payouts',
 };
-const WISE_EUR: LedgerReference = {
-    id: LedgerId('51974018'),
-    label: '0005 Wise Business - EUR',
-};
-const WISE_USD: LedgerReference = {
-    id: LedgerId('51974061'),
-    label: '0006 Wise Business - USD',
-};
-
-const WISE_PERSONAL: LedgerReference = {
-    id: LedgerId('51974064'),
-    label: '0007 Wise',
-};
-const CRYPTO_WALLET: LedgerReference = {
-    id: LedgerId('54782895'),
-    label: '0008 Crypto wallet - Coinbase',
-};
-
-enum CredentialLabel {
-    Rise = 'Main - Rise',
-    WisePersonal = 'Main - Wise Personal',
-}
-
-interface SeedBankAccount {
-    currency: CurrencyCode;
-    ledger: LedgerReference;
-}
-
-const BANK_ACCOUNTS: SeedBankAccount[] = [
-    { currency: currencyCodeSchema.parse('EUR'), ledger: WISE_EUR },
-    { currency: currencyCodeSchema.parse('USD'), ledger: WISE_USD },
-];
-
-const BANK_ACCOUNT_OVERRIDES = new Map<string, SeedBankAccount[]>([
-    [
-        CredentialLabel.Rise,
-        [{ currency: currencyCodeSchema.parse('USD'), ledger: CRYPTO_WALLET }],
-    ],
-    [
-        CredentialLabel.WisePersonal,
-        [
-            {
-                currency: currencyCodeSchema.parse('EUR'),
-                ledger: WISE_PERSONAL,
-            },
-            {
-                currency: currencyCodeSchema.parse('USD'),
-                ledger: WISE_PERSONAL,
-            },
-        ],
-    ],
-]);
-
 interface SeedRule {
     direction: BookingDirection;
     display: string;
@@ -307,8 +252,8 @@ export default class SeedAccountingRules extends DatabaseSeeder {
         if (creds.length === 0) return;
 
         for (const cred of creds) {
-            const overrides = BANK_ACCOUNT_OVERRIDES.get(cred.label);
-            const bankRows = (overrides ?? BANK_ACCOUNTS).map((b) => ({
+            const { accounts, isOverride } = seedBankAccountsFor(cred.label);
+            const bankRows = accounts.map((b) => ({
                 credentialId: cred.id,
                 currency: b.currency,
                 ledgerId: b.ledger.id,
@@ -318,7 +263,7 @@ export default class SeedAccountingRules extends DatabaseSeeder {
             const bankInsert = db
                 .insert(accountingBankAccount)
                 .values(bankRows);
-            await (overrides
+            await (isOverride
                 ? bankInsert.onConflictDoUpdate({
                       set: {
                           ledgerId: sql`excluded.ledger_id`,
