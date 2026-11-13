@@ -27,7 +27,7 @@ vi.mock('~/trpc/react', async () => {
     };
 
     return trpcDoubleReact({
-        api: {
+        procedures: {
             accounting: {
                 rules: {
                     backtest: {

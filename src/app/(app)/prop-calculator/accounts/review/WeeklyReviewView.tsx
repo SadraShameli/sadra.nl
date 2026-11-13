@@ -1,8 +1,12 @@
 'use client';
-import { keepPreviousData, skipToken } from '@tanstack/react-query';
-import { useQuery } from '@tanstack/react-query';
-import { useMutation } from '@tanstack/react-query';
-import { useQueryClient } from '@tanstack/react-query';
+
+import {
+    keepPreviousData,
+    skipToken,
+    useMutation,
+    useQuery,
+    useQueryClient,
+} from '@tanstack/react-query';
 import {
     Check,
     ChevronLeft,

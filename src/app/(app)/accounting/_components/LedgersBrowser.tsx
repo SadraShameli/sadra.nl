@@ -1,4 +1,5 @@
 'use client';
+
 import { useQuery } from '@tanstack/react-query';
 import { BookOpen } from 'lucide-react';
 import { useMemo } from 'react';

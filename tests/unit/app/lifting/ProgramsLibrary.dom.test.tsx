@@ -63,7 +63,7 @@ vi.mock('~/trpc/react', async () => {
     };
 
     return trpcDoubleReact({
-        api: {
+        procedures: {
             lifting: {
                 program: {
                     advance: { mutation: mutation([]) },

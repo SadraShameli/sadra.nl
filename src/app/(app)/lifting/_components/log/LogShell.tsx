@@ -1,7 +1,6 @@
 'use client';
-import { useQuery } from '@tanstack/react-query';
-import { useMutation } from '@tanstack/react-query';
-import { useQueryClient } from '@tanstack/react-query';
+
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Clock, Dumbbell, Flag, Play, Square } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';

@@ -17,7 +17,7 @@ import { Eur } from '~/lib/accounting/core/money';
 vi.mock('~/trpc/react', async () => {
     const { trpcDoubleReact } = await import('../../../stubs/trpcDouble');
     return trpcDoubleReact({
-        api: {},
+        procedures: {},
     });
 });
 

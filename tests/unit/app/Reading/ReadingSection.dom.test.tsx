@@ -25,7 +25,7 @@ const readingsState = vi.hoisted(() => ({ hasData: true }));
 vi.mock('~/trpc/react', async () => {
     const { trpcDoubleReact } = await import('../../../stubs/trpcDouble');
     return trpcDoubleReact({
-        api: {
+        procedures: {
             location: {
                 getLocationDevices: {
                     query: () => ({ data: { data: [] } }),

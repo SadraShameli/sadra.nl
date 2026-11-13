@@ -37,7 +37,7 @@ vi.mock('~/trpc/react', async () => {
     const { query, recorder } = harness;
 
     return trpcDoubleReact({
-        api: {
+        procedures: {
             device: { listAdmin: { query: query([]) } },
             location: { listAdmin: { query: query([]) } },
             queryClient: () => ({}),

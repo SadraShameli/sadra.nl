@@ -1,6 +1,6 @@
 'use client';
-import { replaceEqualDeep } from '@tanstack/react-query';
-import { useQuery } from '@tanstack/react-query';
+
+import { replaceEqualDeep, useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { memo, type ReactNode, useMemo, useState } from 'react';
 

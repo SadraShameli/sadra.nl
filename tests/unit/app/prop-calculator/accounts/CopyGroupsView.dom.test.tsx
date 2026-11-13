@@ -156,7 +156,7 @@ vi.mock('next/navigation', () => ({
 vi.mock('~/trpc/react', async () => {
     const { trpcDoubleReact } = await import('../../../../stubs/trpcDouble');
     return trpcDoubleReact({
-        api: {
+        procedures: {
             propAccounts: {
                 account: { list: harness.query('account.list') },
                 copyGroup: {

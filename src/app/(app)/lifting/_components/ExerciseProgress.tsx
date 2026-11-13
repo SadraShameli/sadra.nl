@@ -1,4 +1,5 @@
 'use client';
+
 import { useQuery } from '@tanstack/react-query';
 import { subDays, subMonths } from 'date-fns';
 import { TrendingUp, Trophy } from 'lucide-react';

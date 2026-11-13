@@ -1,4 +1,5 @@
 'use client';
+
 import { useQuery } from '@tanstack/react-query';
 import { type SortingState } from '@tanstack/react-table';
 import { ChevronRight, History } from 'lucide-react';

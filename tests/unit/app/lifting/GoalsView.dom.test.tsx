@@ -43,7 +43,7 @@ vi.mock('~/trpc/react', async () => {
     const { goal, recorder } = harness;
 
     return trpcDoubleReact({
-        api: {
+        procedures: {
             lifting: {
                 goal: {
                     create: { mutation: recorder([]) },

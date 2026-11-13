@@ -24,7 +24,7 @@ vi.mock('next/navigation', () => ({
 vi.mock('~/trpc/react', async () => {
     const { trpcDoubleReact } = await import('../../../stubs/trpcDouble');
     return trpcDoubleReact({
-        api: {
+        procedures: {
             lifting: {
                 routine: {
                     delete: {

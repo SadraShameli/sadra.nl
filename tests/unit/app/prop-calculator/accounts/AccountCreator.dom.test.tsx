@@ -57,7 +57,7 @@ vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 vi.mock('~/trpc/react', async () => {
     const { trpcDoubleReact } = await import('../../../../stubs/trpcDouble');
     return trpcDoubleReact({
-        api: {
+        procedures: {
             propAccounts: {
                 account: {
                     archive: { mutation: harness.mutation },

@@ -109,7 +109,7 @@ vi.mock('sonner', () => ({
 vi.mock('~/trpc/react', async () => {
     const { trpcDoubleReact } = await import('../../../../stubs/trpcDouble');
     return trpcDoubleReact({
-        api: {
+        procedures: {
             propAccounts: {
                 decision: {
                     listForAccount: harness.query('decision.listForAccount'),

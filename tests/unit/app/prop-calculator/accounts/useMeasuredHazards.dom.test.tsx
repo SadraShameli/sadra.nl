@@ -57,7 +57,7 @@ vi.mock('~/lib/auth/client', () => ({
 vi.mock('~/trpc/react', async () => {
     const { trpcDoubleReact } = await import('../../../../stubs/trpcDouble');
     return trpcDoubleReact({
-        api: {
+        procedures: {
             propAccounts: {
                 account: { list: { query: () => harness.accounts } },
                 event: { list: { query: () => harness.events } },

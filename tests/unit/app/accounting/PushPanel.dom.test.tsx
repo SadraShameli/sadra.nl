@@ -14,7 +14,7 @@ const stream = vi.hoisted(() => ({ running: false }));
 vi.mock('~/trpc/react', async () => {
     const { trpcDoubleReact } = await import('../../../stubs/trpcDouble');
     return trpcDoubleReact({
-        api: {
+        procedures: {
             accounting: {
                 runs: { get: { query: () => ({ data: undefined }) } },
             },

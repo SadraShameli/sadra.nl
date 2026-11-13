@@ -54,7 +54,7 @@ vi.mock('~/trpc/react', async () => {
     const invalidate = { invalidate: vi.fn() };
 
     return trpcDoubleReact({
-        api: {
+        procedures: {
             accounting: {
                 bankAccounts: {
                     delete: mutationHook(backend.deleteBankAccount),

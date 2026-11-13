@@ -33,7 +33,7 @@ vi.mock('~/trpc/react', async () => {
     const { goal, idle } = harness;
 
     return trpcDoubleReact({
-        api: {
+        procedures: {
             lifting: {
                 goal: {
                     create: { mutation: idle },

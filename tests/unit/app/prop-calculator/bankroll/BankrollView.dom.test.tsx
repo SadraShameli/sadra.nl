@@ -52,7 +52,7 @@ vi.mock('~/lib/auth/client', () => ({
 vi.mock('~/trpc/react', async () => {
     const { trpcDoubleReact } = await import('../../../../stubs/trpcDouble');
     return trpcDoubleReact({
-        api: {
+        procedures: {
             propAccounts: {
                 bankroll: {
                     summary: { query: () => ({ data: undefined }) },

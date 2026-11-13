@@ -1,4 +1,5 @@
 'use client';
+
 import { useQuery } from '@tanstack/react-query';
 import { eachDayOfInterval, getDay, subMonths } from 'date-fns';
 import { CalendarRange, Dumbbell } from 'lucide-react';

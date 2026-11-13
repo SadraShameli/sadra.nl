@@ -21,7 +21,7 @@ const recordActual = vi.hoisted(() => vi.fn());
 vi.mock('~/trpc/react', async () => {
     const { trpcDoubleReact } = await import('../../../../stubs/trpcDouble');
     return trpcDoubleReact({
-        api: {
+        procedures: {
             propAccounts: {
                 decision: {
                     create: {

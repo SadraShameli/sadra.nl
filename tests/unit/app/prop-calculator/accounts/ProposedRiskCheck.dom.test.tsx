@@ -44,7 +44,7 @@ vi.mock('~/trpc/react', async () => {
     const { useState } = await vi.importActual<typeof ReactModule>('react');
 
     return trpcDoubleReact({
-        api: {
+        procedures: {
             propAccounts: {
                 violation: {
                     create: {

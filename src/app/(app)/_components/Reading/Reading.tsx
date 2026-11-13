@@ -1,6 +1,6 @@
 'use client';
-import { keepPreviousData, skipToken } from '@tanstack/react-query';
-import { useQuery } from '@tanstack/react-query';
+
+import { keepPreviousData, skipToken, useQuery } from '@tanstack/react-query';
 import { addDays } from 'date-fns';
 import { AreaChart as ChartIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';

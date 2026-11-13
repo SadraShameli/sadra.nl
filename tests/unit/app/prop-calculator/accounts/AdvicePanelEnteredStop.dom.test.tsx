@@ -24,9 +24,9 @@ import {
 import {
     BELOW_ONE_CONTRACT_TEXT,
     DEFAULT_RULEBOOK,
+    RungPlacement,
     type SizingAdvisor,
 } from '~/lib/prop-calculator/advisor';
-import { RungPlacement } from '~/lib/prop-calculator/advisor';
 
 const USER_ID = 'user-a';
 const ACCOUNT_ID = 'account-a';
@@ -120,7 +120,7 @@ vi.mock('next/navigation', () => ({
 vi.mock('~/trpc/react', async () => {
     const { trpcDoubleReact } = await import('../../../../stubs/trpcDouble');
     return trpcDoubleReact({
-        api: {
+        procedures: {
             propAccounts: {
                 account: {
                     get: harness.query('account.get'),

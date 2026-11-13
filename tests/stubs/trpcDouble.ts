@@ -2,8 +2,14 @@ type Callable = (...args: unknown[]) => unknown;
 
 type DoubleOperation =
     | {
+          readonly filters: unknown;
           readonly input: unknown;
-          readonly kind: 'filter' | 'key';
+          readonly kind: 'filter';
+          readonly path: readonly string[];
+      }
+    | {
+          readonly input: unknown;
+          readonly kind: 'key';
           readonly path: readonly string[];
       }
     | {
@@ -41,9 +47,11 @@ const QUERY_OPTION_METHODS = new Set(['infiniteQueryOptions', 'queryOptions']);
 
 const KEY_METHODS = new Set(['pathKey', 'queryKey']);
 
+const MISSING_QUERY_CLIENT_MESSAGE = 'No QueryClient set';
+
 const operationsByTarget = new WeakMap<object, DoubleOperation>();
 
-const installed: { api: unknown } = { api: null };
+const installed: { procedures: unknown } = { procedures: null };
 
 export function trpcDoubleQuery<TModule extends object>(
     actual: TModule,
@@ -56,7 +64,7 @@ export function trpcDoubleQuery<TModule extends object>(
                     const operation = operationOf(args[0]);
                     return operation?.kind === 'query'
                         ? callMethod(
-                              installed.api,
+                              installed.procedures,
                               operation.path,
                               'query',
                               operation.input,
@@ -70,7 +78,7 @@ export function trpcDoubleQuery<TModule extends object>(
                     const operation = operationOf(args[0]);
                     return operation?.kind === 'mutation'
                         ? callMethod(
-                              installed.api,
+                              installed.procedures,
                               operation.path,
                               'mutation',
                               operation.options,
@@ -90,7 +98,7 @@ export function trpcDoubleQuery<TModule extends object>(
 export function trpcDoubleReact<TModule extends object>(
     module: TModule,
 ): TModule & { useTRPC: () => unknown } {
-    installed.api = Reflect.get(module, 'api');
+    installed.procedures = Reflect.get(module, 'procedures');
     return { ...module, useTRPC: () => operationProxy([]) };
 }
 
@@ -137,15 +145,16 @@ function doubleQueryClient(real: unknown): unknown {
                             ? delegate.call(real, ...args)
                             : undefined;
                     }
-                    const utils = callMethod(installed.api, [], 'queryClient');
+                    const utils = callMethod(
+                        installed.procedures,
+                        [],
+                        'queryClient',
+                    );
                     const input =
                         operation.kind === 'mutation'
                             ? undefined
                             : operation.input;
-                    const rest =
-                        operation.kind === 'query'
-                            ? [operation.options]
-                            : args.slice(1);
+                    const rest = restArguments(operation, args);
                     return callMethod(
                         utils,
                         operation.path,
@@ -203,15 +212,19 @@ function operationProxy(path: readonly string[]): unknown {
                     });
             }
             if (FILTER_OPTION_METHODS.has(key)) {
-                return (input?: unknown) =>
-                    tag(
+                return (...args: unknown[]) => {
+                    const isPathFilter = key === 'pathFilter';
+                    const input = isPathFilter ? undefined : args[0];
+                    return tag(
                         { queryKey: [path, input] },
                         {
-                            input: key === 'pathFilter' ? undefined : input,
+                            filters: isPathFilter ? args[0] : args[1],
+                            input,
                             kind: 'filter',
                             path,
                         },
                     );
+                };
             }
             return operationProxy([...path, key]);
         },
@@ -225,8 +238,34 @@ function proxyTarget(): void {
 function realQueryClient(readClient: Callable, args: unknown[]): unknown {
     try {
         return readClient(...args);
-    } catch {
-        return undefined;
+    } catch (error) {
+        if (
+            error instanceof Error &&
+            error.message.startsWith(MISSING_QUERY_CLIENT_MESSAGE)
+        ) {
+            return undefined;
+        }
+        throw error;
+    }
+}
+
+function restArguments(
+    operation: DoubleOperation,
+    args: readonly unknown[],
+): unknown[] {
+    switch (operation.kind) {
+        case 'filter': {
+            return operation.filters === undefined ? [] : [operation.filters];
+        }
+        case 'key': {
+            return args.slice(1);
+        }
+        case 'mutation': {
+            return [];
+        }
+        case 'query': {
+            return [operation.options];
+        }
     }
 }
 

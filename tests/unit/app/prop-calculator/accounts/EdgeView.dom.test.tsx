@@ -41,7 +41,7 @@ vi.mock('next/navigation', () => ({
 vi.mock('~/trpc/react', async () => {
     const { trpcDoubleReact } = await import('../../../../stubs/trpcDouble');
     return trpcDoubleReact({
-        api: {
+        procedures: {
             propAccounts: {
                 edge: { summary: harness.query('edge.summary') },
                 rulebook: { get: harness.query('rulebook.get') },

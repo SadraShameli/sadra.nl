@@ -37,7 +37,7 @@ vi.mock('next/link', () => ({
 vi.mock('~/trpc/react', async () => {
     const { trpcDoubleReact } = await import('../../../stubs/trpcDouble');
     return trpcDoubleReact({
-        api: {
+        procedures: {
             accounting: {
                 credentials: { list: { query: () => ({ data: [] }) } },
                 runs: {

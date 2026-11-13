@@ -1,4 +1,5 @@
 'use client';
+
 import { useQuery } from '@tanstack/react-query';
 import { Calculator } from 'lucide-react';
 import { type ComponentProps, type ReactNode, useMemo, useState } from 'react';
